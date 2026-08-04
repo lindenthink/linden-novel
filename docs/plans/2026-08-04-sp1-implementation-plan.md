@@ -30,14 +30,14 @@
 
 - 目标：搭建可启动的空壳
 - 涉及文件：`package.json`、`vite.config.ts`、`tsconfig.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`、`src-tauri/src/main.rs`、`src/main.ts`、`src/App.vue`、`index.html`
-- 步骤：用 `pnpm create tauri-app` 选 Vue + TS；或手动初始化后接入 `@tauri-apps/cli`
-- 验证：`pnpm tauri dev` 启动空白窗口，无报错
+- 步骤：用 `yarn create tauri-app` 选 Vue + TS；或手动初始化后接入 `@tauri-apps/cli`
+- 验证：`yarn tauri dev` 启动空白窗口，无报错
 
 ### 2 前端依赖与配置
 
 - 目标：接入 Pinia / Vue Router / Naive UI / UnoCSS
 - 涉及文件：`package.json`、`vite.config.ts`（UnoCSS 插件）、`uno.config.ts`、`src/main.ts`（注册 Pinia/Router/NaiveUI）
-- 验证：`pnpm dev` 前端可跑，NaiveUI 按钮渲染正常
+- 验证：`yarn dev` 前端可跑，NaiveUI 按钮渲染正常
 
 ### 3 Rust 依赖
 
@@ -51,7 +51,7 @@
 - 涉及文件：`.editorconfig`、`rustfmt.toml`、`clippy` 配置、`.gitignore`（已有，确认含 `target/`、`node_modules/`、`.superpowers/`）
 - 验证：`cargo fmt --check`、`cargo clippy` 无警告
 
-**P0 验收**：`pnpm tauri dev` 启动，前后端联调通道通（前端 invoke 一个 hello command 成功）。
+**P0 验收**：`yarn tauri dev` 启动，前后端联调通道通（前端 invoke 一个 hello command 成功）。
 
 ---
 
@@ -120,7 +120,7 @@
 ### 1 TS 类型
 
 - 涉及文件：`src/types/{project,chapter,settings}.ts`、`src/types/error.ts`（镜像 `AppError`）
-- 验证：`pnpm typecheck` 通过
+- 验证：`yarn typecheck` 通过
 
 ### 2 api 封装
 
@@ -268,13 +268,13 @@
 4. 明暗主题 ✓
 5. Rust 单测覆盖 repo/service ✓
 
-**P7 验收**：DoD 5 条全过；`pnpm tauri build` 产出可执行包。
+**P7 验收**：DoD 5 条全过；`yarn tauri build` 产出可执行包。
 
 ---
 
 ## (十) 执行建议
 
-- 每阶段完成后跑该阶段验收 + `cargo test` + `pnpm typecheck`，通过再进下一阶段
+- 每阶段完成后跑该阶段验收 + `cargo test` + `yarn typecheck`，通过再进下一阶段
 - P1/P2（Rust 数据与 IPC）是地基，优先做扎实；P4/P5 是体验核心，可迭代打磨
 - 单测与功能同步写，避免 P7 集中补测
 - 风险点：TipTap 自定义节点序列化、Tauri v2 权限配置、SQLx 离线模式编译（需 `DATABASE_URL` 或 `sqlx prepare` 离线检查）——遇阻优先查官方文档
