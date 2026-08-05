@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { onMounted, watch } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { NButton, NSpace, useMessage } from "naive-ui";
+import { save } from "@tauri-apps/plugin-dialog";
+import { NButton, NSpace, NDropdown, useMessage } from "naive-ui";
 import { useProjectStore } from "../stores/project";
 import { useChapterStore } from "../stores/chapter";
 import { useTheme } from "../composables/useTheme";
+import { exportProject } from "../api/io";
 import ThreeColumnLayout from "../components/layout/ThreeColumnLayout.vue";
 import ChapterTree from "../components/layout/ChapterTree.vue";
 import RightSidebar from "../components/layout/RightSidebar.vue";
@@ -37,6 +39,40 @@ function goHome() {
   router.push({ name: "home" });
 }
 
+// ---- 导出 ----
+const exporting = ref(false);
+const exportOptions = [
+  { label: "导出为 TXT", key: "txt" },
+  { label: "导出为 Markdown", key: "md" },
+  { label: "导出为 JSON", key: "json" },
+];
+
+async function handleExport(key: string) {
+  try {
+    const ext = key === "md" ? "md" : key;
+    const defaultName = `${projectStore.currentProject?.title || "项目"}.${ext}`;
+    const selected = await save({
+      filters: [
+        {
+          name: key === "json" ? "JSON 文件" : key === "md" ? "Markdown 文件" : "文本文件",
+          extensions: [ext],
+        },
+      ],
+      defaultPath: defaultName,
+      title: "导出项目",
+    });
+    if (!selected) return;
+
+    exporting.value = true;
+    await exportProject(projectId, key, selected);
+    message.success("导出成功");
+  } catch (e: any) {
+    message.error(e?.message || "导出失败");
+  } finally {
+    exporting.value = false;
+  }
+}
+
 onMounted(loadProject);
 
 // 路由变化时重新加载
@@ -64,6 +100,18 @@ watch(() => route.params.id, (newId) => {
         </span>
       </div>
       <NSpace size="small" align="center">
+        <NDropdown
+          :options="exportOptions"
+          @select="handleExport"
+          :disabled="exporting"
+        >
+          <NButton quaternary size="small" :loading="exporting">
+            <template #icon>
+              <span class="i-carbon-export" />
+            </template>
+            导出
+          </NButton>
+        </NDropdown>
         <NButton quaternary size="small" @click="toggle">
           <template #icon>
             <span v-if="isDark" class="i-carbon-moon" />

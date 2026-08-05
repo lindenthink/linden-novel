@@ -19,6 +19,8 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             // 日志初始化
             let log_dir = app.path().app_log_dir()?.to_path_buf();
@@ -67,6 +69,9 @@ pub fn run() {
             // settings
             commands::settings::get_setting,
             commands::settings::set_setting,
+            // io (import/export)
+            commands::io::export_project,
+            commands::io::import_project,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

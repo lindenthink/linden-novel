@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { open } from "@tauri-apps/plugin-dialog";
 import {
   NButton,
   NSpace,
@@ -18,6 +19,7 @@ import {
   NEmpty,
 } from "naive-ui";
 import { useProjectStore } from "../stores/project";
+import { importProject } from "../api/io";
 import ProjectCard from "../components/common/ProjectCard.vue";
 
 const router = useRouter();
@@ -92,6 +94,28 @@ function handleEdit(_id: string) {
   message.info("项目编辑功能后续实现");
 }
 
+const importing = ref(false);
+async function handleImport() {
+  try {
+    const selected = await open({
+      multiple: false,
+      filters: [{ name: "JSON 项目文件", extensions: ["json"] }],
+      title: "选择要导入的项目文件",
+    });
+    if (!selected) return;
+
+    importing.value = true;
+    const newProjectId = await importProject(selected as string);
+    message.success("项目导入成功");
+    await projectStore.fetchProjects();
+    router.push({ name: "editor", params: { id: newProjectId } });
+  } catch (e: any) {
+    message.error(e?.message || "导入失败");
+  } finally {
+    importing.value = false;
+  }
+}
+
 onMounted(() => {
   projectStore.fetchProjects();
 });
@@ -109,6 +133,12 @@ onMounted(() => {
           <h1 class="text-xl font-bold">Linden Novel</h1>
         </div>
         <NSpace>
+          <NButton @click="handleImport" :loading="importing">
+            <template #icon>
+              <span class="i-carbon-upload" />
+            </template>
+            导入项目
+          </NButton>
           <NButton type="primary" @click="showCreate = true">
             <template #icon>
               <span class="i-carbon-add" />
