@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { NButton, NSpace, NEmpty, useMessage } from "naive-ui";
+import { NButton, NSpace, useMessage } from "naive-ui";
 import { useProjectStore } from "../stores/project";
 import { useChapterStore } from "../stores/chapter";
 import { useTheme } from "../composables/useTheme";
@@ -9,6 +9,7 @@ import ThreeColumnLayout from "../components/layout/ThreeColumnLayout.vue";
 import ChapterTree from "../components/layout/ChapterTree.vue";
 import RightSidebar from "../components/layout/RightSidebar.vue";
 import StatusBar from "../components/layout/StatusBar.vue";
+import LindenEditor from "../components/editor/LindenEditor.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -79,23 +80,8 @@ watch(() => route.params.id, (newId) => {
           <ChapterTree />
         </template>
         <template #center>
-          <!-- 编辑区占位 — P5 接入 TipTap 编辑器 -->
-          <div class="flex-1 flex items-center justify-center h-full">
-            <NEmpty
-              v-if="!chapterStore.activeChapterId"
-              description="在左侧选择章节开始编辑"
-              class="py-20"
-            >
-              <template #icon>
-                <span class="i-carbon-edit text-4xl opacity-20" />
-              </template>
-            </NEmpty>
-            <div v-else class="flex-1 flex items-center justify-center h-full">
-              <p class="text-gray-400 dark:text-gray-500 text-sm">
-                TipTap 编辑器将在 P5 阶段接入
-              </p>
-            </div>
-          </div>
+          <!-- 编辑区 — TipTap 编辑器 -->
+          <LindenEditor />
         </template>
         <template #right>
           <RightSidebar />
