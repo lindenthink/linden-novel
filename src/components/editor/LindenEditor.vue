@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch, onBeforeUnmount } from "vue";
+import { ref, watch, onBeforeUnmount } from "vue";
 import { EditorContent, useEditor } from "@tiptap/vue-3";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -7,6 +7,10 @@ import { useChapterStore } from "../../stores/chapter";
 import BubbleToolbar from "./BubbleToolbar.vue";
 
 const chapterStore = useChapterStore();
+
+// 专注模式 / 打字机模式
+const focusMode = ref(false);
+const typewriterMode = ref(false);
 
 // TipTap 编辑器实例
 const editor = useEditor({
@@ -24,8 +28,26 @@ const editor = useEditor({
     const json = editor.getJSON();
     const text = editor.getText();
     chapterStore.updateContent(JSON.stringify(json), text);
+
+    // 打字机模式：保持光标在视口中央
+    if (typewriterMode.value) {
+      scrollCaretToCenter();
+    }
   },
 });
+
+// 打字机模式：滚动使光标位于视口中央
+function scrollCaretToCenter() {
+  if (!editor.value) return;
+  const { state, view } = editor.value;
+  const { from } = state.selection;
+  const coords = view.coordsAtPos(from);
+  const scrollContainer = view.dom.parentElement;
+  if (scrollContainer) {
+    const containerHeight = scrollContainer.clientHeight;
+    scrollContainer.scrollTop = coords.top - scrollContainer.offsetTop - containerHeight / 2;
+  }
+}
 
 // 监听 activeContent 变化，同步到编辑器
 watch(
@@ -45,7 +67,7 @@ watch(
   { immediate: true }
 );
 
-// 自动保存（debounce 2 秒）
+// 自动保存（debounce 1.5 秒）
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 watch(
   () => chapterStore.dirty,
@@ -55,10 +77,10 @@ watch(
     // 清除之前的定时器
     if (saveTimer) clearTimeout(saveTimer);
 
-    // 2 秒后自动保存
+    // 1.5 秒后自动保存
     saveTimer = setTimeout(async () => {
       await chapterStore.flushSave();
-    }, 2000);
+    }, 1500);
   }
 );
 
@@ -68,18 +90,50 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="linden-editor flex flex-col h-full">
+  <div class="linden-editor flex flex-col h-full" :class="{ 'focus-mode': focusMode }">
+    <!-- 模式切换栏 -->
+    <div class="flex items-center justify-end gap-2 px-4 py-1 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
+      <button
+        class="text-xs px-2 py-0.5 rounded transition-colors"
+        :class="focusMode ? 'bg-linden-primary/20 text-linden-primary' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'"
+        @click="focusMode = !focusMode"
+        title="专注模式：隐藏侧栏，沉浸写作"
+      >
+        专注
+      </button>
+      <button
+        class="text-xs px-2 py-0.5 rounded transition-colors"
+        :class="typewriterMode ? 'bg-linden-primary/20 text-linden-primary' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'"
+        @click="typewriterMode = !typewriterMode"
+        title="打字机模式：光标始终居中"
+      >
+        打字机
+      </button>
+    </div>
+
     <!-- 气泡工具栏 -->
     <BubbleToolbar v-if="editor" :editor="editor" />
 
     <!-- 编辑器内容区 -->
-    <div class="flex-1 overflow-auto">
+    <div class="flex-1 overflow-auto" :class="{ 'typewriter-scroll': typewriterMode }">
       <EditorContent :editor="editor" class="prose prose-sm max-w-none px-8 py-6" />
     </div>
   </div>
 </template>
 
 <style scoped>
+/* 专注模式：隐藏模式切换栏和气泡工具栏 */
+.focus-mode :deep(.linden-editor > div:first-child),
+.focus-mode :deep(.bubble-menu) {
+  display: none;
+}
+
+/* 打字机模式：内容区上下留白，使光标可居中 */
+.typewriter-scroll {
+  padding-top: 40vh;
+  padding-bottom: 40vh;
+}
+
 /* TipTap 编辑器基础样式 */
 :deep(.tiptap) {
   outline: none;
