@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { NConfigProvider, NMessageProvider } from "naive-ui";
+import { NConfigProvider, NMessageProvider, NDialogProvider } from "naive-ui";
+import { useTheme } from "./composables/useTheme";
+
+const { theme, init } = useTheme();
+init();
 </script>
 
 <template>
-  <NConfigProvider>
+  <NConfigProvider :theme="theme">
     <NMessageProvider>
-      <router-view />
+      <NDialogProvider>
+        <router-view />
+      </NDialogProvider>
     </NMessageProvider>
   </NConfigProvider>
 </template>

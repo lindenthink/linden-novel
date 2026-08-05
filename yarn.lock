@@ -239,7 +239,14 @@
   resolved "https://registry.npmmirror.com/@esbuild/win32-x64/-/win32-x64-0.25.12.tgz#9bdad8176be7811ad148d1f8772359041f46c6c5"
   integrity sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA==
 
-"@iconify/types@^2.0.0":
+"@iconify-json/carbon@^1.2.25":
+  version "1.2.25"
+  resolved "https://registry.npmmirror.com/@iconify-json/carbon/-/carbon-1.2.25.tgz#18988fa435c8068eb4d7da76fc50ff2d90538609"
+  integrity sha512-7GLgXnmi47Skh8DcPPiP8U3vgm3rOVziEe+flCdG/kwiVaeb649U3Eqt/ej4f3NvlZK8BrOxpR3xQlWFLZYblQ==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify/types@*", "@iconify/types@^2.0.0":
   version "2.0.0"
   resolved "https://registry.npmmirror.com/@iconify/types/-/types-2.0.0.tgz#ab0e9ea681d6c8a1214f30cd741fe3a20cc57f57"
   integrity sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==
@@ -724,7 +731,7 @@
   dependencies:
     "@unocss/core" "66.7.5"
 
-"@unocss/preset-icons@66.7.5":
+"@unocss/preset-icons@66.7.5", "@unocss/preset-icons@^66.7.5":
   version "66.7.5"
   resolved "https://registry.npmmirror.com/@unocss/preset-icons/-/preset-icons-66.7.5.tgz#ece2be95bc57620ab8bffe7be0b68b0f240281d2"
   integrity sha512-ZsxadWnGGtHdANTikuMnjkQaT1qwUFJHZBF4fzVsPMnUiiKGs8rzXukwM9w3Gi9ontM7nbG2FYi9clWETSlpFg==
