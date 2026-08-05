@@ -1,4 +1,6 @@
+mod ai;
 mod commands;
+mod crypto;
 mod db;
 mod error;
 mod models;
@@ -72,6 +74,58 @@ pub fn run() {
             // io (import/export)
             commands::io::export_project,
             commands::io::import_project,
+            // character
+            commands::character::list_characters,
+            commands::character::get_character,
+            commands::character::create_character,
+            commands::character::update_character,
+            commands::character::delete_character,
+            // storyline
+            commands::storyline::list_storylines,
+            commands::storyline::get_storyline,
+            commands::storyline::create_storyline,
+            commands::storyline::update_storyline,
+            commands::storyline::delete_storyline,
+            // worldview
+            commands::worldview::list_worldview,
+            commands::worldview::get_worldview,
+            commands::worldview::create_worldview,
+            commands::worldview::update_worldview,
+            commands::worldview::delete_worldview,
+            // chapter_element
+            commands::chapter_element::list_chapter_elements,
+            commands::chapter_element::add_chapter_element,
+            commands::chapter_element::remove_chapter_element,
+            commands::chapter_element::remove_chapter_element_by_ref,
+            // ai_provider
+            commands::ai_provider::list_ai_providers,
+            commands::ai_provider::get_ai_provider,
+            commands::ai_provider::create_ai_provider,
+            commands::ai_provider::update_ai_provider,
+            commands::ai_provider::delete_ai_provider,
+            commands::ai_provider::get_default_ai_provider,
+            // ai_api_key
+            commands::ai_api_key::list_ai_api_keys,
+            commands::ai_api_key::create_ai_api_key,
+            commands::ai_api_key::delete_ai_api_key,
+            commands::ai_api_key::set_default_ai_api_key,
+            // prompt_template
+            commands::prompt_template::list_prompt_templates,
+            commands::prompt_template::get_prompt_template,
+            commands::prompt_template::list_prompt_templates_by_type,
+            commands::prompt_template::create_prompt_template,
+            commands::prompt_template::update_prompt_template,
+            commands::prompt_template::delete_prompt_template,
+            // ai_complete
+            commands::ai_complete::ai_complete,
+            commands::ai_complete::ai_complete_stream,
+            commands::ai_complete::ai_render_template,
+            // ai_generation
+            commands::ai_generation::ai_generate,
+            commands::ai_generation::list_ai_generation_history,
+            commands::ai_generation::get_ai_generation_history,
+            commands::ai_generation::delete_ai_generation_history,
+            commands::ai_generation::delete_ai_generation_history_by_chapter,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

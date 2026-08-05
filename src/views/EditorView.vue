@@ -12,6 +12,7 @@ import ChapterTree from "../components/layout/ChapterTree.vue";
 import RightSidebar from "../components/layout/RightSidebar.vue";
 import StatusBar from "../components/layout/StatusBar.vue";
 import LindenEditor from "../components/editor/LindenEditor.vue";
+import AiSettingsDialog from "../components/ai/AiSettingsDialog.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -73,6 +74,9 @@ async function handleExport(key: string) {
   }
 }
 
+// ---- AI 设置 ----
+const showAiSettings = ref(false);
+
 onMounted(loadProject);
 
 // 路由变化时重新加载
@@ -100,6 +104,12 @@ watch(() => route.params.id, (newId) => {
         </span>
       </div>
       <NSpace size="small" align="center">
+        <NButton quaternary size="small" @click="showAiSettings = true">
+          <template #icon>
+            <span class="i-carbon-ai" />
+          </template>
+          AI 设置
+        </NButton>
         <NDropdown
           :options="exportOptions"
           @select="handleExport"
@@ -139,5 +149,8 @@ watch(() => route.params.id, (newId) => {
 
     <!-- 状态栏 -->
     <StatusBar />
+
+    <!-- AI 设置对话框 -->
+    <AiSettingsDialog v-model:show="showAiSettings" />
   </div>
 </template>

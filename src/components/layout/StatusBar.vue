@@ -2,9 +2,14 @@
 import { computed } from "vue";
 import { useChapterStore } from "../../stores/chapter";
 import { useProjectStore } from "../../stores/project";
+import { useWordCount } from "../../composables/useWordCount";
 
 const chapterStore = useChapterStore();
 const projectStore = useProjectStore();
+
+// 实时字数统计（前端估值）：传入当前正文文本的 ref
+const contentText = computed(() => chapterStore.activeContent?.content_text ?? "");
+const { wordCount: liveWordCount } = useWordCount(contentText);
 
 const activeChapter = computed(() => {
   if (!chapterStore.activeChapterId) return null;
@@ -43,8 +48,8 @@ const saveLabel = computed(() => {
 
     <span class="opacity-30">|</span>
 
-    <!-- 字数 -->
-    <span>{{ chapterStore.wordCount }} 字</span>
+    <!-- 字数：优先显示实时统计，保存后使用权威值 -->
+    <span>{{ chapterStore.dirty ? liveWordCount : chapterStore.wordCount }} 字</span>
 
     <span class="opacity-30">|</span>
 

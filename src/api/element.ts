@@ -1,0 +1,102 @@
+import { invoke } from "@tauri-apps/api/core";
+import type {
+  Character,
+  CreateCharacter,
+  UpdateCharacter,
+  Storyline,
+  CreateStoryline,
+  UpdateStoryline,
+  WorldviewEntry,
+  CreateWorldviewEntry,
+  UpdateWorldviewEntry,
+  ChapterElement,
+  CreateChapterElement,
+} from "../types";
+
+// ---- Character ----
+
+export async function listCharacters(projectId: string): Promise<Character[]> {
+  return invoke<Character[]>("list_characters", { projectId });
+}
+
+export async function getCharacter(id: string): Promise<Character> {
+  return invoke<Character>("get_character", { id });
+}
+
+export async function createCharacter(input: CreateCharacter): Promise<Character> {
+  return invoke<Character>("create_character", { input });
+}
+
+export async function updateCharacter(id: string, input: UpdateCharacter): Promise<Character> {
+  return invoke<Character>("update_character", { id, input });
+}
+
+export async function deleteCharacter(id: string): Promise<void> {
+  return invoke("delete_character", { id });
+}
+
+// ---- Storyline ----
+
+export async function listStorylines(projectId: string): Promise<Storyline[]> {
+  return invoke<Storyline[]>("list_storylines", { projectId });
+}
+
+export async function getStoryline(id: string): Promise<Storyline> {
+  return invoke<Storyline>("get_storyline", { id });
+}
+
+export async function createStoryline(input: CreateStoryline): Promise<Storyline> {
+  return invoke<Storyline>("create_storyline", { input });
+}
+
+export async function updateStoryline(id: string, input: UpdateStoryline): Promise<Storyline> {
+  return invoke<Storyline>("update_storyline", { id, input });
+}
+
+export async function deleteStoryline(id: string): Promise<void> {
+  return invoke("delete_storyline", { id });
+}
+
+// ---- Worldview ----
+
+export async function listWorldview(projectId: string): Promise<WorldviewEntry[]> {
+  return invoke<WorldviewEntry[]>("list_worldview", { projectId });
+}
+
+export async function getWorldview(id: string): Promise<WorldviewEntry> {
+  return invoke<WorldviewEntry>("get_worldview", { id });
+}
+
+export async function createWorldview(input: CreateWorldviewEntry): Promise<WorldviewEntry> {
+  return invoke<WorldviewEntry>("create_worldview", { input });
+}
+
+export async function updateWorldview(id: string, input: UpdateWorldviewEntry): Promise<WorldviewEntry> {
+  return invoke<WorldviewEntry>("update_worldview", { id, input });
+}
+
+export async function deleteWorldview(id: string): Promise<void> {
+  return invoke("delete_worldview", { id });
+}
+
+// ---- Chapter Element ----
+
+export async function listChapterElements(chapterId: string): Promise<ChapterElement[]> {
+  return invoke<ChapterElement[]>("list_chapter_elements", { chapterId });
+}
+
+export async function addChapterElement(input: CreateChapterElement): Promise<ChapterElement> {
+  return invoke<ChapterElement>("add_chapter_element", { input });
+}
+
+export async function removeChapterElement(id: string): Promise<void> {
+  return invoke("remove_chapter_element", { id });
+}
+
+export async function removeChapterElementByRef(
+  chapterId: string,
+  elementType: string,
+  elementId: string,
+): Promise<void> {
+  return invoke("remove_chapter_element_by_ref", { chapterId, elementType, elementId });
+}

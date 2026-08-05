@@ -1,16 +1,31 @@
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from "vue";
+import { ref, watch, onBeforeUnmount, onMounted, onUnmounted } from "vue";
 import { EditorContent, useEditor } from "@tiptap/vue-3";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useChapterStore } from "../../stores/chapter";
+import { useMessage } from "naive-ui";
 import BubbleToolbar from "./BubbleToolbar.vue";
+import ChapterElementBar from "./ChapterElementBar.vue";
+import AICompletionPanel from "../ai/AICompletionPanel.vue";
+import AIGenerationDialog from "../ai/AIGenerationDialog.vue";
+import { SceneBreak } from "./extensions/sceneBreak";
 
 const chapterStore = useChapterStore();
+const message = useMessage();
 
 // 专注模式 / 打字机模式
 const focusMode = ref(false);
 const typewriterMode = ref(false);
+
+// AI 补全
+const showAIPanel = ref(false);
+const aiContextText = ref("");
+const aiCursorPosition = ref<{ from: number; to: number } | null>(null);
+const aiMode = ref<"complete" | "continue" | "rewrite" | "expand" | "polish">("complete");
+
+// AI 生成
+const showAIGenerationDialog = ref(false);
 
 // TipTap 编辑器实例
 const editor = useEditor({
@@ -21,6 +36,7 @@ const editor = useEditor({
     Placeholder.configure({
       placeholder: "开始写作...",
     }),
+    SceneBreak,
   ],
   content: "",
   onUpdate: ({ editor }) => {
@@ -87,32 +103,183 @@ watch(
 onBeforeUnmount(() => {
   if (saveTimer) clearTimeout(saveTimer);
 });
+
+// AI 补全功能
+function openAICompletion(mode: "complete" | "continue" | "rewrite" | "expand" | "polish" = "complete") {
+  if (!editor.value) return;
+
+  const { from, to } = editor.value.state.selection;
+  const text = editor.value.state.doc.textBetween(from, to, "\n");
+
+  // 如果没有选中文本，获取当前段落作为上下文
+  if (!text) {
+    const paragraph = editor.value.state.doc.resolve(from).parent;
+    const paragraphText = paragraph.textContent;
+    if (paragraphText) {
+      aiContextText.value = paragraphText;
+    } else {
+      message.warning("请先选择文本或将光标放在段落中");
+      return;
+    }
+  } else {
+    aiContextText.value = text;
+  }
+
+  aiCursorPosition.value = { from, to };
+  aiMode.value = mode;
+  showAIPanel.value = true;
+}
+
+// 气泡菜单 AI 功能
+function handleAIContinue() {
+  openAICompletion("continue");
+}
+
+function handleAIRewrite() {
+  openAICompletion("rewrite");
+}
+
+function handleAIExpand() {
+  openAICompletion("expand");
+}
+
+function handleAIPolish() {
+  openAICompletion("polish");
+}
+
+function handleAIAccept(content: string) {
+  if (!editor.value) return;
+
+  const { from, to } = editor.value.state.selection;
+
+  // 如果有选中文本，替换；否则在光标处插入
+  if (from !== to) {
+    editor.value.chain().focus().insertContent(content).run();
+  } else {
+    editor.value.chain().focus().insertContentAt(to, content).run();
+  }
+
+  showAIPanel.value = false;
+  message.success("AI 补全已应用");
+}
+
+function handleAIReject() {
+  showAIPanel.value = false;
+  message.info("已拒绝 AI 补全");
+}
+
+function handleAIClose() {
+  showAIPanel.value = false;
+}
+
+// AI 生成功能
+function openAIGeneration() {
+  if (!editor.value) return;
+  
+  const activeChapterId = chapterStore.activeChapterId;
+  if (!activeChapterId) {
+    message.warning("请先选择一个章节");
+    return;
+  }
+  
+  showAIGenerationDialog.value = true;
+}
+
+function handleAIGenerationApply(content: string) {
+  if (!editor.value) return;
+  
+  // 在光标位置插入生成的内容
+  editor.value.chain().focus().insertContent(content).run();
+  message.success("AI 生成内容已插入");
+}
+
+// 快捷键监听
+function handleKeydown(e: KeyboardEvent) {
+  // Ctrl+K 或 Cmd+K 打开 AI 补全
+  if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+    e.preventDefault();
+    openAICompletion();
+  }
+}
+
+onMounted(() => {
+  window.addEventListener("keydown", handleKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", handleKeydown);
+});
 </script>
 
 <template>
   <div class="linden-editor flex flex-col h-full" :class="{ 'focus-mode': focusMode }">
     <!-- 模式切换栏 -->
-    <div class="flex items-center justify-end gap-2 px-4 py-1 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
-      <button
-        class="text-xs px-2 py-0.5 rounded transition-colors"
-        :class="focusMode ? 'bg-linden-primary/20 text-linden-primary' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'"
-        @click="focusMode = !focusMode"
-        title="专注模式：隐藏侧栏，沉浸写作"
-      >
-        专注
-      </button>
-      <button
-        class="text-xs px-2 py-0.5 rounded transition-colors"
-        :class="typewriterMode ? 'bg-linden-primary/20 text-linden-primary' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'"
-        @click="typewriterMode = !typewriterMode"
-        title="打字机模式：光标始终居中"
-      >
-        打字机
-      </button>
+    <div class="flex items-center justify-between gap-2 px-4 py-1 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
+      <div class="flex items-center gap-2">
+        <button
+          class="text-xs px-2 py-0.5 rounded transition-colors bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+          @click="openAICompletion('complete')"
+          title="AI 助手 (Ctrl+K)"
+        >
+          ✨ AI 助手
+        </button>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          class="text-xs px-2 py-0.5 rounded transition-colors bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30"
+          @click="openAIGeneration"
+          title="AI 生成"
+        >
+          🤖 AI 生成
+        </button>
+        <button
+          class="text-xs px-2 py-0.5 rounded transition-colors"
+          :class="focusMode ? 'bg-linden-primary/20 text-linden-primary' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'"
+          @click="focusMode = !focusMode"
+          title="专注模式：隐藏侧栏，沉浸写作"
+        >
+          专注
+        </button>
+        <button
+          class="text-xs px-2 py-0.5 rounded transition-colors"
+          :class="typewriterMode ? 'bg-linden-primary/20 text-linden-primary' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'"
+          @click="typewriterMode = !typewriterMode"
+          title="打字机模式：光标始终居中"
+        >
+          打字机
+        </button>
+      </div>
     </div>
 
+    <!-- 章节元素关联栏 -->
+    <ChapterElementBar />
+
     <!-- 气泡工具栏 -->
-    <BubbleToolbar v-if="editor" :editor="editor" />
+    <BubbleToolbar
+      v-if="editor"
+      :editor="editor"
+      @ai-continue="handleAIContinue"
+      @ai-rewrite="handleAIRewrite"
+      @ai-expand="handleAIExpand"
+      @ai-polish="handleAIPolish"
+    />
+
+    <!-- AI 补全面板 -->
+    <AICompletionPanel
+      v-model:visible="showAIPanel"
+      :context-text="aiContextText"
+      :cursor-position="aiCursorPosition"
+      :mode="aiMode"
+      @accept="handleAIAccept"
+      @reject="handleAIReject"
+      @close="handleAIClose"
+    />
+
+    <!-- AI 生成对话框 -->
+    <AIGenerationDialog
+      v-model:show="showAIGenerationDialog"
+      @apply="handleAIGenerationApply"
+    />
 
     <!-- 编辑器内容区 -->
     <div class="flex-1 overflow-auto" :class="{ 'typewriter-scroll': typewriterMode }">

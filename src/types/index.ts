@@ -3,3 +3,32 @@ export type { Chapter, CreateChapter, UpdateChapterMeta, ChapterContent } from "
 export type { AppSetting } from "./settings";
 export type { AppError } from "./error";
 export { parseAppError } from "./error";
+export type {
+  Character,
+  CreateCharacter,
+  UpdateCharacter,
+  Storyline,
+  CreateStoryline,
+  UpdateStoryline,
+  WorldviewEntry,
+  CreateWorldviewEntry,
+  UpdateWorldviewEntry,
+  ChapterElement,
+  CreateChapterElement,
+  ElementType,
+} from "./element";
+export type {
+  AiProvider,
+  CreateAiProvider,
+  UpdateAiProvider,
+  AiApiKey,
+  CreateAiApiKey,
+  PromptTemplate,
+  CreatePromptTemplate,
+  UpdatePromptTemplate,
+  Message,
+  CompleteRequest,
+  CompleteResponse,
+  UsageInfo,
+  StreamChunkEvent,
+} from "./ai";

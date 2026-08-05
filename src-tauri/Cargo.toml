@@ -56,3 +56,13 @@ reqwest = { version = "0.12", default-features = false, features = [
     "stream",
 ] }
 
+# 加密（SP3 API Key 加密）
+aes-gcm = "0.10"
+base64 = "0.22"
+rand = "0.8"
+
+# 流式响应（SP3 SSE 解析）
+futures = "0.3"
+async-trait = "0.1"
+bytes = "1.5"
+

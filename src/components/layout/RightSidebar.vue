@@ -2,6 +2,9 @@
 import { computed } from "vue";
 import { NTabs, NTabPane, NEmpty, NDescriptions, NDescriptionsItem, NTag } from "naive-ui";
 import { useChapterStore } from "../../stores/chapter";
+import CharacterPanel from "../elements/CharacterPanel.vue";
+import StorylinePanel from "../elements/StorylinePanel.vue";
+import WorldviewPanel from "../elements/WorldviewPanel.vue";
 
 const chapterStore = useChapterStore();
 
@@ -51,30 +54,18 @@ function formatTime(iso: string | null) {
       </NTabPane>
 
       <!-- Tab 2: 故事线 -->
-      <NTabPane name="storyline" tab="故事线" class="flex-1 overflow-auto px-3 py-2">
-        <NEmpty description="故事线功能将在后续版本中实现" class="py-10" size="small">
-          <template #icon>
-            <span class="i-carbon-branch text-2xl opacity-30" />
-          </template>
-        </NEmpty>
+      <NTabPane name="storyline" tab="故事线" class="flex-1 overflow-hidden">
+        <StorylinePanel />
       </NTabPane>
 
       <!-- Tab 3: 人物 -->
-      <NTabPane name="characters" tab="人物" class="flex-1 overflow-auto px-3 py-2">
-        <NEmpty description="人物肖像功能将在后续版本中实现" class="py-10" size="small">
-          <template #icon>
-            <span class="i-carbon-user-avatar text-2xl opacity-30" />
-          </template>
-        </NEmpty>
+      <NTabPane name="characters" tab="人物" class="flex-1 overflow-hidden">
+        <CharacterPanel />
       </NTabPane>
 
       <!-- Tab 4: 世界观 -->
-      <NTabPane name="worldview" tab="世界观" class="flex-1 overflow-auto px-3 py-2">
-        <NEmpty description="世界观功能将在后续版本中实现" class="py-10" size="small">
-          <template #icon>
-            <span class="i-carbon-earth text-2xl opacity-30" />
-          </template>
-        </NEmpty>
+      <NTabPane name="worldview" tab="世界观" class="flex-1 overflow-hidden">
+        <WorldviewPanel />
       </NTabPane>
     </NTabs>
   </div>

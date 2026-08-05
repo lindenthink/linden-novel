@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import { BubbleMenu } from "@tiptap/extension-bubble-menu";
+import { BubbleMenu } from "@tiptap/vue-3/menus";
 import type { Editor } from "@tiptap/vue-3";
 
 const props = defineProps<{
   editor: Editor;
+}>();
+
+const emit = defineEmits<{
+  (e: "ai-continue"): void;
+  (e: "ai-rewrite"): void;
+  (e: "ai-expand"): void;
+  (e: "ai-polish"): void;
 }>();
 
 function isActive(name: string, attrs?: Record<string, any>) {
@@ -26,10 +33,30 @@ function toggleList(type: "bulletList" | "orderedList") {
 function toggleBlockquote() {
   props.editor.chain().focus().toggleBlockquote().run();
 }
+
+function insertSceneBreak() {
+  props.editor.chain().focus().setSceneBreak().run();
+}
+
+function handleAIContinue() {
+  emit("ai-continue");
+}
+
+function handleAIRewrite() {
+  emit("ai-rewrite");
+}
+
+function handleAIExpand() {
+  emit("ai-expand");
+}
+
+function handleAIPolish() {
+  emit("ai-polish");
+}
 </script>
 
 <template>
-  <BubbleMenu :editor="editor" :tippy-options="{ duration: 100 }">
+  <BubbleMenu :editor="editor" :options="{ placement: 'top', offset: 8 }">
     <div class="bubble-toolbar flex items-center gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 px-2 py-1">
       <!-- 标题 -->
       <button
@@ -99,6 +126,49 @@ function toggleBlockquote() {
         @click="toggleBlockquote"
       >
         引用
+      </button>
+
+      <div class="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1" />
+
+      <!-- 分场线 -->
+      <button
+        class="px-2 py-1 rounded text-xs transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+        @click="insertSceneBreak"
+        title="插入分场线 (* * *)"
+      >
+        分场
+      </button>
+
+      <div class="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1" />
+
+      <!-- AI 功能 -->
+      <button
+        class="px-2 py-1 rounded text-xs transition-colors hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400"
+        @click="handleAIContinue"
+        title="AI 续写"
+      >
+        ✨ 续写
+      </button>
+      <button
+        class="px-2 py-1 rounded text-xs transition-colors hover:bg-purple-100 dark:hover:bg-purple-900 text-purple-600 dark:text-purple-400"
+        @click="handleAIRewrite"
+        title="AI 改写"
+      >
+        🔄 改写
+      </button>
+      <button
+        class="px-2 py-1 rounded text-xs transition-colors hover:bg-green-100 dark:hover:bg-green-900 text-green-600 dark:text-green-400"
+        @click="handleAIExpand"
+        title="AI 扩写"
+      >
+        📝 扩写
+      </button>
+      <button
+        class="px-2 py-1 rounded text-xs transition-colors hover:bg-yellow-100 dark:hover:bg-yellow-900 text-yellow-600 dark:text-yellow-400"
+        @click="handleAIPolish"
+        title="AI 润色"
+      >
+        💎 润色
       </button>
     </div>
   </BubbleMenu>
