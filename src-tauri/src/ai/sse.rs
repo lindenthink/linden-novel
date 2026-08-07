@@ -15,13 +15,13 @@ pub enum SseEvent {
 }
 
 /// 解析 SSE 格式的字节流
-/// 
+///
 /// SSE 格式：
-/// ```
+/// ```text
 /// data: {"content": "hello"}
-/// 
+///
 /// data: {"content": " world"}
-/// 
+///
 /// data: [DONE]
 /// ```
 pub fn parse_sse_line(line: &str) -> Option<SseEvent> {

@@ -66,3 +66,6 @@ futures = "0.3"
 async-trait = "0.1"
 bytes = "1.5"
 
+# 哈希（SP4 内容变更检测）
+sha2 = "0.10"
+

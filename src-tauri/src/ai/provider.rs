@@ -38,6 +38,19 @@ pub struct StreamChunk {
     pub done: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmbeddingRequest {
+    pub model: String,
+    pub input: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmbeddingResponse {
+    pub vector: Vec<f32>,
+    pub model: String,
+    pub dim: usize,
+}
+
 #[async_trait]
 pub trait AiProvider: Send + Sync {
     /// 非流式完成请求
@@ -48,6 +61,9 @@ pub trait AiProvider: Send + Sync {
         &self,
         request: CompletionRequest,
     ) -> Result<Box<dyn Iterator<Item = Result<StreamChunk, AppError>> + Send>, AppError>;
+    
+    /// 生成文本嵌入向量
+    async fn embed(&self, request: EmbeddingRequest) -> Result<EmbeddingResponse, AppError>;
     
     /// 获取 provider 名称
     fn name(&self) -> &str;

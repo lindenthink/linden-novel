@@ -17,8 +17,8 @@ pub async fn generate(
     user_instruction: Option<&str>,
     parameters: Option<crate::models::ai_generation::GenerationParameters>,
 ) -> Result<(String, AiGenerationHistory), AppError> {
-    // 收集上下文
-    let context = context_collector::collect_context(pool, chapter_id).await?;
+    // 收集上下文（启用 RAG 检索）
+    let context = context_collector::collect_context_with_rag(pool, Some(app_data_dir), chapter_id).await?;
 
     // 构建提示词
     let prompt = generation_prompts::build_generation_prompt(&context, mode, user_instruction);

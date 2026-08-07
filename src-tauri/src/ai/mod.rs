@@ -4,3 +4,4 @@ pub mod provider_factory;
 pub mod sse;
 pub mod context_collector;
 pub mod generation_prompts;
+pub mod rag;

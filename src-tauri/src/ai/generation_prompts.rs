@@ -18,6 +18,18 @@ pub fn build_generation_prompt(
     }
     prompt.push('\n');
 
+    // 相邻章节摘要（情节连贯性）
+    if context.previous_chapter_summary.is_some() || context.next_chapter_summary.is_some() {
+        prompt.push_str("## 相邻章节摘要\n");
+        if let Some(prev) = &context.previous_chapter_summary {
+            prompt.push_str(&format!("- 前一章：{}\n", prev));
+        }
+        if let Some(next) = &context.next_chapter_summary {
+            prompt.push_str(&format!("- 后一章：{}\n", next));
+        }
+        prompt.push('\n');
+    }
+
     // 角色信息
     if !context.characters.is_empty() {
         prompt.push_str("## 关联角色\n");
@@ -65,6 +77,13 @@ pub fn build_generation_prompt(
         prompt.push_str("## 当前内容\n");
         prompt.push_str(&context.chapter_content);
         prompt.push_str("\n\n");
+    }
+
+    // RAG 检索到的相关上下文
+    if let Some(rag) = &context.rag_context {
+        if !rag.trim().is_empty() {
+            prompt.push_str(rag);
+        }
     }
 
     // 生成要求

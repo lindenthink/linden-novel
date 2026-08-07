@@ -18,6 +18,7 @@ pub fn create_provider(
                 config.base_url.clone(),
                 api_key.to_string(),
                 models,
+                None, // 使用默认 embedding model (text-embedding-3-small)
             )?;
             Ok(Box::new(provider))
         }

@@ -6,6 +6,7 @@ import { NButton, NSpace, NDropdown, useMessage } from "naive-ui";
 import { useProjectStore } from "../stores/project";
 import { useChapterStore } from "../stores/chapter";
 import { useTheme } from "../composables/useTheme";
+import { useLongContext } from "../composables/useLongContext";
 import { exportProject } from "../api/io";
 import ThreeColumnLayout from "../components/layout/ThreeColumnLayout.vue";
 import ChapterTree from "../components/layout/ChapterTree.vue";
@@ -20,6 +21,14 @@ const projectStore = useProjectStore();
 const chapterStore = useChapterStore();
 const message = useMessage();
 const { toggle, isDark } = useTheme();
+const {
+  summaryLoading,
+  batchLoading,
+  embeddingLoading,
+  handleGenerateSummary,
+  handleBatchSummaries,
+  handleSyncEmbeddings,
+} = useLongContext();
 
 const projectId = route.params.id as string;
 
@@ -77,6 +86,72 @@ async function handleExport(key: string) {
 // ---- AI 设置 ----
 const showAiSettings = ref(false);
 
+// ---- 长上下文操作 ----
+async function generateSummaryForCurrent() {
+  const chapterId = chapterStore.activeChapterId;
+  if (!chapterId) {
+    message.warning("请先选择一个章节");
+    return;
+  }
+  try {
+    const res = await handleGenerateSummary(chapterId);
+    message.success(`摘要已生成（${res.char_count} 字）`);
+  } catch (e: any) {
+    message.error(e?.toString() || "摘要生成失败");
+  }
+}
+
+async function batchGenerateAllSummaries() {
+  try {
+    const res = await handleBatchSummaries(projectId);
+    message.success(`批量完成：成功 ${res.success_count}，失败 ${res.failed_count}`);
+  } catch (e: any) {
+    message.error(e?.toString() || "批量摘要生成失败");
+  }
+}
+
+async function syncAllEmbeddings() {
+  try {
+    const res = await handleSyncEmbeddings(projectId);
+    message.success(`嵌入同步完成：${res.embedded_count} 个条目`);
+  } catch (e: any) {
+    message.error(e?.toString() || "嵌入同步失败");
+  }
+}
+
+const longContextOptions = [
+  {
+    label: "为当前章节生成摘要",
+    key: "summary-current",
+    disabled: summaryLoading.value,
+  },
+  {
+    label: "批量生成所有章节摘要",
+    key: "summary-batch",
+    disabled: batchLoading.value,
+  },
+  { type: "divider", key: "d1" },
+  {
+    label: "同步语义索引（嵌入）",
+    key: "embedding-sync",
+    disabled: embeddingLoading.value,
+  },
+];
+
+function handleLongContextSelect(key: string) {
+  switch (key) {
+    case "summary-current":
+      generateSummaryForCurrent();
+      break;
+    case "summary-batch":
+      batchGenerateAllSummaries();
+      break;
+    case "embedding-sync":
+      syncAllEmbeddings();
+      break;
+  }
+}
+
 onMounted(loadProject);
 
 // 路由变化时重新加载
@@ -104,6 +179,21 @@ watch(() => route.params.id, (newId) => {
         </span>
       </div>
       <NSpace size="small" align="center">
+        <NDropdown
+          :options="longContextOptions"
+          @select="handleLongContextSelect"
+        >
+          <NButton
+            quaternary
+            size="small"
+            :loading="summaryLoading || batchLoading || embeddingLoading"
+          >
+            <template #icon>
+              <span class="i-carbon-search-locate" />
+            </template>
+            上下文
+          </NButton>
+        </NDropdown>
         <NButton quaternary size="small" @click="showAiSettings = true">
           <template #icon>
             <span class="i-carbon-ai" />

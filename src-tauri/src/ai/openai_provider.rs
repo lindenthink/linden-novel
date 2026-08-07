@@ -5,7 +5,10 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use futures::stream::StreamExt;
 
-use crate::ai::provider::{AiProvider, CompletionRequest, CompletionResponse, StreamChunk, Usage};
+use crate::ai::provider::{
+    AiProvider, CompletionRequest, CompletionResponse, EmbeddingRequest, EmbeddingResponse,
+    StreamChunk, Usage,
+};
 use crate::error::AppError;
 
 #[derive(Debug)]
@@ -14,11 +17,18 @@ pub struct OpenAiProvider {
     base_url: String,
     api_key: String,
     models: Vec<String>,
+    embedding_model: String,
     client: Client,
 }
 
 impl OpenAiProvider {
-    pub fn new(name: String, base_url: String, api_key: String, models: Vec<String>) -> Result<Self, AppError> {
+    pub fn new(
+        name: String,
+        base_url: String,
+        api_key: String,
+        models: Vec<String>,
+        embedding_model: Option<String>,
+    ) -> Result<Self, AppError> {
         let client = Client::builder()
             .build()
             .map_err(|e| AppError::Internal(format!("Failed to create HTTP client: {}", e)))?;
@@ -28,6 +38,8 @@ impl OpenAiProvider {
             base_url,
             api_key,
             models,
+            embedding_model: embedding_model
+                .unwrap_or_else(|| "text-embedding-3-small".to_string()),
             client,
         })
     }
@@ -87,6 +99,27 @@ struct OpenAiStreamChoice {
 #[derive(Deserialize)]
 struct OpenAiStreamDelta {
     content: Option<String>,
+}
+
+// --- Embeddings API structs ---
+
+#[derive(Serialize)]
+struct OpenAiEmbeddingRequest {
+    model: String,
+    input: String,
+}
+
+#[derive(Deserialize)]
+struct OpenAiEmbeddingResponse {
+    data: Vec<OpenAiEmbeddingData>,
+    model: String,
+}
+
+#[derive(Deserialize)]
+struct OpenAiEmbeddingData {
+    embedding: Vec<f32>,
+    #[allow(dead_code)]
+    index: i32,
 }
 
 #[async_trait]
@@ -235,6 +268,58 @@ impl AiProvider for OpenAiProvider {
             .await;
 
         Ok(Box::new(chunk_stream.into_iter()))
+    }
+
+    async fn embed(&self, request: EmbeddingRequest) -> Result<EmbeddingResponse, AppError> {
+        let url = self.build_url("/embeddings");
+
+        let model = if request.model.is_empty() {
+            self.embedding_model.clone()
+        } else {
+            request.model
+        };
+
+        let openai_req = OpenAiEmbeddingRequest {
+            model,
+            input: request.input,
+        };
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Content-Type", "application/json")
+            .json(&openai_req)
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(format!("Embedding HTTP request failed: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            return Err(AppError::Internal(format!(
+                "Embedding API error {}: {}",
+                status, body
+            )));
+        }
+
+        let openai_resp: OpenAiEmbeddingResponse = response
+            .json()
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to parse embedding response: {}", e)))?;
+
+        let data = openai_resp
+            .data
+            .into_iter()
+            .next()
+            .ok_or_else(|| AppError::Internal("Empty embedding response".into()))?;
+
+        let dim = data.embedding.len();
+        Ok(EmbeddingResponse {
+            vector: data.embedding,
+            model: openai_resp.model,
+            dim,
+        })
     }
 
     fn name(&self) -> &str {

@@ -39,6 +39,9 @@ pub struct GenerationContext {
     pub worldviews: Vec<WorldviewSummary>,
     pub previous_chapter_summary: Option<String>,
     pub next_chapter_summary: Option<String>,
+    /// RAG 检索到的相关上下文（渲染为 Prompt 片段）
+    #[serde(default)]
+    pub rag_context: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

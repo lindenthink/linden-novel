@@ -126,6 +126,19 @@ pub fn run() {
             commands::ai_generation::get_ai_generation_history,
             commands::ai_generation::delete_ai_generation_history,
             commands::ai_generation::delete_ai_generation_history_by_chapter,
+            // long_context (SP4)
+            commands::long_context::generate_chapter_summary,
+            commands::long_context::batch_generate_summaries,
+            commands::long_context::sync_project_embeddings,
+            commands::long_context::rag_search,
+            commands::long_context::delete_project_embeddings,
+            commands::long_context::get_chapter_summary,
+            // entity_snapshot (SP4.5)
+            commands::entity_snapshot::generate_chapter_snapshots,
+            commands::entity_snapshot::batch_generate_snapshots,
+            commands::entity_snapshot::get_entity_evolution,
+            commands::entity_snapshot::list_chapter_snapshots,
+            commands::entity_snapshot::delete_project_snapshots,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

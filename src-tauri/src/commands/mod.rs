@@ -12,3 +12,5 @@ pub mod ai_api_key;
 pub mod prompt_template;
 pub mod ai_complete;
 pub mod ai_generation;
+pub mod long_context;
+pub mod entity_snapshot;

@@ -48,6 +48,8 @@ export default defineConfig({
     "i-carbon-text-color",
     "i-carbon-color-palette",
     "i-carbon-link",
+    // SP4 长上下文
+    "i-carbon-search-locate",
   ],
   theme: {
     colors: {
