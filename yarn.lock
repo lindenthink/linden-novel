@@ -246,7 +246,7 @@
   dependencies:
     "@floating-ui/utils" "^0.2.12"
 
-"@floating-ui/dom@^1.0.0":
+"@floating-ui/dom@^1.0.0", "@floating-ui/dom@^1.6.13":
   version "1.8.0"
   resolved "https://registry.npmmirror.com/@floating-ui/dom/-/dom-1.8.0.tgz#8a20e6facbe2456afdbeb6c8b968a72df689cf63"
   integrity sha512-yXSrzeHZBTZadLOlfyhCkJHNeLJnHRnRInwdZ40L7ZiaAtrBwoYlsDrX3v5zB1Utk7CLfzcOVnVVWoXEky7Ceg==
@@ -705,10 +705,22 @@
   resolved "https://registry.npmmirror.com/@tiptap/extension-code/-/extension-code-3.29.2.tgz#89a1398ae5e0bebcd7833c0e73621f11ccaa4a44"
   integrity sha512-c6W5UGuB7WNLpYocsgRzpO2OOTI4QjaI9jjHRMuty9z+s9DtaYM/HrRLNwVh6MopkHb+i/89Wkv8gCS34fftig==
 
+"@tiptap/extension-color@^3.29.2":
+  version "3.29.2"
+  resolved "https://registry.npmmirror.com/@tiptap/extension-color/-/extension-color-3.29.2.tgz#74d8f2909be5d600043848edae5382d1d6b0fc41"
+  integrity sha512-DMeyDRGZXIe2m2/QlrBoN15R4Ufwz3ERiG//OM7bjcYpiTZiO+pLC6tyabI1+QcJrYUGTu5zVah583xXzt89Kw==
+
 "@tiptap/extension-document@^3.29.2":
   version "3.29.2"
   resolved "https://registry.npmmirror.com/@tiptap/extension-document/-/extension-document-3.29.2.tgz#215d692d4b5b9d7bbc8db8f9b9d4221f2a57c9a1"
   integrity sha512-YUamvefLnsqu6124GavVTI7nqcFlQJ12ROB0oSwG69eSBZYNjg1tIs05LFrBxkwf4Xgqd6YzfJ9+FeG428RvzQ==
+
+"@tiptap/extension-drag-handle@^3.29.2":
+  version "3.29.2"
+  resolved "https://registry.npmmirror.com/@tiptap/extension-drag-handle/-/extension-drag-handle-3.29.2.tgz#93ddcc2445bfd787642d0c7568007243450f36a8"
+  integrity sha512-5Y5ElfRnrWIr9IRODzGkqLgIIbdUXNstbs7hWskXQWTg532TJfMpZmQbQRv7th39IcH0uusT7Vs/QlFKXzKVkA==
+  dependencies:
+    "@floating-ui/dom" "^1.6.13"
 
 "@tiptap/extension-dropcursor@^3.29.2":
   version "3.29.2"
@@ -734,6 +746,11 @@
   version "3.29.2"
   resolved "https://registry.npmmirror.com/@tiptap/extension-heading/-/extension-heading-3.29.2.tgz#a7b392d7dd2cd463d9eda7556aaf0bb297795ad9"
   integrity sha512-6W4aIy70Mh7BNlbG9zZ5FBLhJhU2UUEzgZJ/jwYSCcB30o8McLxJSEjhtoHiX8R78Ah2/JzBGvIe5olZlbeE4A==
+
+"@tiptap/extension-highlight@^3.29.2":
+  version "3.29.2"
+  resolved "https://registry.npmmirror.com/@tiptap/extension-highlight/-/extension-highlight-3.29.2.tgz#091a64207bca63e8ecfd4b94c1f44e072fbbe5f7"
+  integrity sha512-bSeZ1C8OlthyK7BzgtqOGfQymdap9V38W2hbr9KGlhVOIAmTqneOwjm27iFcu7jKqkMArVu6WBYN18Lom6umHQ==
 
 "@tiptap/extension-horizontal-rule@^3.29.2":
   version "3.29.2"
@@ -791,6 +808,26 @@
   version "3.29.2"
   resolved "https://registry.npmmirror.com/@tiptap/extension-strike/-/extension-strike-3.29.2.tgz#fe17b6140955e8f45c7ad32c66539891be934441"
   integrity sha512-aEvLAbddUQZ+FukCreV3q4G2HfNI+odE7E9U+wbq6XsSWKyo8/pDu1muz+TFKNre4blSMOQ3JQmw5UeHDKy+fg==
+
+"@tiptap/extension-task-item@^3.29.2":
+  version "3.29.2"
+  resolved "https://registry.npmmirror.com/@tiptap/extension-task-item/-/extension-task-item-3.29.2.tgz#5976da6f4b3c2401cf52d8f31135609fd47835ab"
+  integrity sha512-mi5p2/FbUO9LFl7qPmRBThME+bFpd0vyeOD6IiWnD32hYZ720/N5VDkDypPmz+IaxTFaiLeGVmGC1SxGtxksKA==
+
+"@tiptap/extension-task-list@^3.29.2":
+  version "3.29.2"
+  resolved "https://registry.npmmirror.com/@tiptap/extension-task-list/-/extension-task-list-3.29.2.tgz#21500975e7df6c87e5b8444af884443313276fd0"
+  integrity sha512-7ZkVoMcM3FAuvilZs3XliRRowPVMrVoKhfklfbNkTj9nVOvVToM+xcXKCcsZnf1mjMAyjw65m8doXJQKGCH7DA==
+
+"@tiptap/extension-text-align@^3.29.2":
+  version "3.29.2"
+  resolved "https://registry.npmmirror.com/@tiptap/extension-text-align/-/extension-text-align-3.29.2.tgz#60ac64334432703caf1bd90fcd3f08a1d6374c2a"
+  integrity sha512-205FF87zjUEh79n6dgVy9SMj1P+rNserHMqPd8lF7YS2TOWikXPG4PFuQHWXXCYzaCvQXAiATSAyPXXmUWUvaQ==
+
+"@tiptap/extension-text-style@^3.29.2":
+  version "3.29.2"
+  resolved "https://registry.npmmirror.com/@tiptap/extension-text-style/-/extension-text-style-3.29.2.tgz#560134aa8014151910730c344434361390b2799e"
+  integrity sha512-aQad9V9ROaEi3hE4g5z9wQ6lv5FSnzlnWFMVJxRjNlwXgm7H0fymxb4rGfca+pAwYkiRwpKYh1LatpJw2ECQAA==
 
 "@tiptap/extension-text@^3.29.2":
   version "3.29.2"
@@ -855,6 +892,11 @@
     "@tiptap/extension-underline" "^3.29.2"
     "@tiptap/extensions" "^3.29.2"
     "@tiptap/pm" "^3.29.2"
+
+"@tiptap/suggestion@^3.29.2":
+  version "3.29.2"
+  resolved "https://registry.npmmirror.com/@tiptap/suggestion/-/suggestion-3.29.2.tgz#d16197cde733cf0b1799fbc40410fe6001a92b21"
+  integrity sha512-ZEhRm0gnRCwCScR9IrnIBhm9sr6U8vpR9oeznYk3hiedZ48zsgohqvgoIYpWcwYWrT2Pb0NrfhCT8IuSzdJHzQ==
 
 "@tiptap/vue-3@^3.29.2":
   version "3.29.2"
