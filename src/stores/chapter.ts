@@ -17,8 +17,19 @@ export const useChapterStore = defineStore("chapter", () => {
 
   // ---- Chapter list actions ----
 
+  /** 清空章节列表（加载项目前调用） */
+  function clearChapters() {
+    chapters.value = [];
+    activeChapterId.value = null;
+    activeContent.value = null;
+    dirty.value = false;
+    wordCount.value = 0;
+  }
+
+  /** 加载指定卷的章节，追加到列表中 */
   async function fetchChapters(volumeId: string) {
-    chapters.value = await api.listChapters(volumeId);
+    const list = await api.listChapters(volumeId);
+    chapters.value.push(...list);
   }
 
   async function createChapter(volumeId: string, projectId: string, title: string) {
@@ -110,6 +121,7 @@ export const useChapterStore = defineStore("chapter", () => {
     dirty,
     saving,
     wordCount,
+    clearChapters,
     fetchChapters,
     createChapter,
     updateChapterMeta,

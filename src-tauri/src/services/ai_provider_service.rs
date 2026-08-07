@@ -19,10 +19,9 @@ pub async fn create(pool: &SqlitePool, input: &CreateAiProvider) -> Result<AiPro
     if input.base_url.trim().is_empty() {
         return Err(AppError::Validation("Base URL must not be empty".into()));
     }
-    
-    // 验证 models_json 是有效的 JSON 数组
-    let _: Vec<String> = serde_json::from_str(&input.models_json)
-        .map_err(|_| AppError::Validation("models_json must be a valid JSON array of strings".into()))?;
+    if input.models_json.trim().is_empty() {
+        return Err(AppError::Validation("Model name must not be empty".into()));
+    }
     
     // 如果设置为默认，先清除其他默认
     if input.is_default.unwrap_or(false) {
@@ -40,10 +39,11 @@ pub async fn update(
     // 确保存在
     get(pool, id).await?;
     
-    // 验证 models_json
+    // 验证 models_json 非空
     if let Some(ref models_json) = input.models_json {
-        let _: Vec<String> = serde_json::from_str(models_json)
-            .map_err(|_| AppError::Validation("models_json must be a valid JSON array of strings".into()))?;
+        if models_json.trim().is_empty() {
+            return Err(AppError::Validation("Model name must not be empty".into()));
+        }
     }
     
     // 如果设置为默认，先清除其他默认

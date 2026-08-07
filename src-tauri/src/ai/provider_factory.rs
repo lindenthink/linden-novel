@@ -8,8 +8,7 @@ pub fn create_provider(
     config: &AiProviderModel,
     api_key: &str,
 ) -> Result<Box<dyn AiProvider>, AppError> {
-    let models: Vec<String> = serde_json::from_str(&config.models_json)
-        .map_err(|e| AppError::Validation(format!("Invalid models_json: {}", e)))?;
+    let model = config.models_json.clone();
 
     match config.provider_type.as_str() {
         "openai" => {
@@ -17,14 +16,22 @@ pub fn create_provider(
                 config.name.clone(),
                 config.base_url.clone(),
                 api_key.to_string(),
-                models,
+                vec![model],
                 None, // 使用默认 embedding model (text-embedding-3-small)
             )?;
             Ok(Box::new(provider))
         }
-        // 未来可以添加更多 provider 类型
-        // "claude" => { ... }
-        // "custom" => { ... }
+        "deepseek" => {
+            // DeepSeek 兼容 OpenAI API
+            let provider = OpenAiProvider::new(
+                config.name.clone(),
+                config.base_url.clone(),
+                api_key.to_string(),
+                vec![model],
+                Some("text-embedding-v3".to_string()),
+            )?;
+            Ok(Box::new(provider))
+        }
         other => Err(AppError::Validation(format!(
             "Unsupported provider type: {}",
             other

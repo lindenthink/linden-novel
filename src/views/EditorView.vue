@@ -34,6 +34,7 @@ const projectId = route.params.id as string;
 
 async function loadProject() {
   try {
+    chapterStore.clearChapters();
     await projectStore.selectProject(projectId);
     // 加载所有卷的章节
     for (const vol of projectStore.volumes) {

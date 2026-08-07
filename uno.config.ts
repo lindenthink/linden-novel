@@ -50,6 +50,8 @@ export default defineConfig({
     "i-carbon-link",
     // SP4 长上下文
     "i-carbon-search-locate",
+    // 实体演变
+    "i-carbon-update",
   ],
   theme: {
     colors: {

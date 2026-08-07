@@ -110,14 +110,8 @@ pub async fn generate_chapter_summary(
     let api_key = ai_api_key_service::get_decrypted(pool, app_data_dir, &default_key.id).await?;
     let ai_provider = provider_factory::create_provider(&provider, &api_key)?;
 
-    // 4. 解析模型
-    let models: Vec<String> = serde_json::from_str(&provider.models_json).map_err(|e| {
-        AppError::Internal(format!("Failed to parse models_json: {}", e))
-    })?;
-    let model = models
-        .first()
-        .cloned()
-        .unwrap_or_else(|| "gpt-3.5-turbo".to_string());
+    // 4. 使用模型
+    let model = provider.models_json.clone();
 
     // 5. 构建请求
     let messages = vec![

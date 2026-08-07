@@ -57,11 +57,7 @@ pub async fn generate(
     });
 
     let request = CompletionRequest {
-        model: serde_json::from_str::<Vec<String>>(&provider.models_json)
-            .map_err(|e| AppError::Internal(format!("Failed to parse models_json: {}", e)))?
-            .first()
-            .cloned()
-            .unwrap_or_else(|| "gpt-3.5-turbo".to_string()),
+        model: provider.models_json.clone(),
         messages,
         temperature: params.temperature,
         max_tokens: params.max_tokens,

@@ -263,7 +263,7 @@ watch(() => chapterStore.activeChapterId, () => {
               v-if="snap.changes"
               class="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded"
             >
-              <span class="i-carbon-change text-xs" />
+              <span class="i-carbon-update text-xs" />
               {{ snap.changes }}
             </div>
           </div>
@@ -393,7 +393,7 @@ watch(() => chapterStore.activeChapterId, () => {
                       v-if="snap.changes"
                       class="mt-1.5 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1"
                     >
-                      <span class="i-carbon-change text-xs" />
+                      <span class="i-carbon-update text-xs" />
                       {{ snap.changes }}
                     </div>
                   </div>

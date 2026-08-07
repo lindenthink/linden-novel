@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, h } from "vue";
+import { ref, computed, onMounted, watch, h } from "vue";
 import {
   NModal,
   NTabs,
@@ -9,6 +9,7 @@ import {
   NForm,
   NFormItem,
   NInput,
+  NSelect,
   NSwitch,
   NDataTable,
   NPopconfirm,
@@ -32,6 +33,19 @@ const message = useMessage();
 
 const activeTab = ref<"provider" | "apikey" | "template">("provider");
 
+const providerTypeOptions = [
+  { label: "OpenAI", value: "openai" },
+  { label: "DeepSeek", value: "deepseek" },
+  { label: "Claude / Anthropic", value: "claude" },
+];
+
+// Provider 预设配置
+const providerPresets: Record<string, { base_url: string; model: string; embedding_model?: string }> = {
+  openai: { base_url: "https://api.openai.com", model: "gpt-4o" },
+  deepseek: { base_url: "https://api.deepseek.com", model: "deepseek-v4-flash" },
+  claude: { base_url: "https://api.anthropic.com", model: "claude-3-5-sonnet" },
+};
+
 // ---- Provider 管理 ----
 const showProviderForm = ref(false);
 const editingProvider = ref<AiProvider | null>(null);
@@ -39,16 +53,29 @@ const providerForm = ref({
   name: "",
   provider_type: "openai",
   base_url: "https://api.openai.com",
-  models_json: '["gpt-4", "gpt-3.5-turbo"]',
+  models_json: "gpt-4o",
   is_default: false,
 });
+
+// 类型切换时自动填充预设（仅新建时）
+watch(
+  () => providerForm.value.provider_type,
+  (type) => {
+    if (editingProvider.value) return; // 编辑时不自动覆盖
+    const preset = providerPresets[type];
+    if (preset) {
+      providerForm.value.base_url = preset.base_url;
+      providerForm.value.models_json = preset.model;
+    }
+  }
+);
 
 function resetProviderForm() {
   providerForm.value = {
     name: "",
     provider_type: "openai",
     base_url: "https://api.openai.com",
-    models_json: '["gpt-4", "gpt-3.5-turbo"]',
+    models_json: "gpt-4o",
     is_default: false,
   };
   editingProvider.value = null;
@@ -158,6 +185,19 @@ const providerColumns: DataTableColumns<AiProvider> = [
 
 // ---- API Key 管理 ----
 const selectedProviderId = ref<string>("");
+
+const providerOptions = computed(() =>
+  aiStore.providers.map((p) => ({
+    label: p.name,
+    value: p.id,
+  }))
+);
+
+async function handleProviderChange(id: string) {
+  selectedProviderId.value = id;
+  await aiStore.loadApiKeys(id);
+}
+
 const showApiKeyForm = ref(false);
 const apikeyForm = ref({
   provider_id: "",
@@ -441,13 +481,17 @@ onMounted(async () => {
                 <NInput v-model:value="providerForm.name" placeholder="例如：OpenAI" />
               </NFormItem>
               <NFormItem label="类型">
-                <NInput v-model:value="providerForm.provider_type" placeholder="openai / claude / custom" />
+                <NSelect
+                  v-model:value="providerForm.provider_type"
+                  :options="providerTypeOptions"
+                  placeholder="请选择类型"
+                />
               </NFormItem>
               <NFormItem label="Base URL">
                 <NInput v-model:value="providerForm.base_url" placeholder="https://api.openai.com" />
               </NFormItem>
-              <NFormItem label="模型列表 (JSON)">
-                <NInput v-model:value="providerForm.models_json" type="textarea" :rows="3" placeholder='["gpt-4", "gpt-3.5-turbo"]' />
+              <NFormItem label="模型名称">
+                <NInput v-model:value="providerForm.models_json" placeholder="例如：gpt-4o / deepseek-chat" />
               </NFormItem>
               <NFormItem label="设为默认">
                 <NSwitch v-model:value="providerForm.is_default" />
@@ -462,10 +506,12 @@ onMounted(async () => {
         <NSpace vertical>
           <NForm inline>
             <NFormItem label="选择 Provider">
-              <NInput
-                v-model:value="selectedProviderId"
-                placeholder="Provider ID"
+              <NSelect
+                :value="selectedProviderId"
+                :options="providerOptions"
+                placeholder="请选择 Provider"
                 :style="{ width: '300px' }"
+                @update:value="handleProviderChange"
               />
             </NFormItem>
           </NForm>

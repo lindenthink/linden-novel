@@ -32,6 +32,8 @@ const contextNode = ref<ChapterTreeNode | null>(null);
 const contextX = ref(0);
 const contextY = ref(0);
 
+
+
 // ---- 将 volumes + chapters 转为 TreeOption ----
 const treeData = computed<ChapterTreeNode[]>(() => {
   const volumes = projectStore.volumes;
@@ -63,6 +65,13 @@ const treeData = computed<ChapterTreeNode[]>(() => {
       })),
   }));
 });
+
+// ---- NTree 全局 nodeProps ----
+function getNodeProps({ option }: { option: ChapterTreeNode }) {
+  return {
+    "data-node-key": String(option.key),
+  };
+}
 
 // ---- 选中 ----
 const selectedKeys = computed(() =>
@@ -97,12 +106,36 @@ function getContextMenu(node: ChapterTreeNode) {
   ];
 }
 
-function handleRightClick({ event, node }: { event: MouseEvent; node: ChapterTreeNode }) {
-  event.preventDefault();
+// NTree 节点右键菜单处理
+function handleNodeContextMenu(e: MouseEvent) {
+  e.preventDefault();
+  
+  // 通过 data-node-key 属性找到被点击的节点
+  const target = e.target as HTMLElement;
+  const nodeEl = target.closest("[data-node-key]") as HTMLElement | null;
+  if (!nodeEl) return;
+  
+  const key = nodeEl.getAttribute("data-node-key");
+  if (!key) return;
+
+  const node = findNode(key, treeData.value);
+  if (!node) return;
+
   contextNode.value = node;
-  contextX.value = event.clientX;
-  contextY.value = event.clientY;
+  contextX.value = e.clientX;
+  contextY.value = e.clientY;
   contextmenu.value = true;
+}
+
+function findNode(key: string, nodes: ChapterTreeNode[]): ChapterTreeNode | undefined {
+  for (const n of nodes) {
+    if (String(n.key) === key) return n;
+    if (n.children) {
+      const found = findNode(key, n.children as ChapterTreeNode[]);
+      if (found) return found;
+    }
+  }
+  return undefined;
 }
 
 async function handleContextSelect(key: string) {
@@ -182,6 +215,8 @@ async function handleContextSelect(key: string) {
   }
 }
 
+
+
 // ---- 新建卷 ----
 async function addVolume() {
   const title = prompt("输入卷名：", `第 ${projectStore.volumes.length + 1} 卷`);
@@ -204,11 +239,12 @@ async function addVolume() {
         <template #icon>
           <span class="i-carbon-add text-sm" />
         </template>
+        卷
       </NButton>
     </div>
 
     <!-- 树 -->
-    <div class="flex-1 overflow-auto py-1">
+    <div class="flex-1 overflow-auto py-1" @contextmenu.prevent="handleNodeContextMenu">
       <NEmpty
         v-if="projectStore.volumes.length === 0"
         description="暂无卷，点击 + 新建"
@@ -219,12 +255,12 @@ async function addVolume() {
         v-else
         :data="treeData"
         :selected-keys="selectedKeys"
+        :node-props="getNodeProps"
         block-line
         expand-on-click
         selectable
         :default-expand-all="true"
         @update:selected-keys="handleSelect"
-        @update:contextmenu="handleRightClick"
       />
     </div>
 
