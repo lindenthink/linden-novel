@@ -29,7 +29,13 @@ function handleDropdown(key: string) {
 
 function formatTime(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
+  return d.toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 </script>
 

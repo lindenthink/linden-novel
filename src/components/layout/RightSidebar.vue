@@ -26,6 +26,7 @@ function formatTime(iso: string | null) {
   if (!iso) return "-";
   const d = new Date(iso);
   return d.toLocaleString("zh-CN", {
+    year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -40,7 +41,7 @@ function formatTime(iso: string | null) {
       <!-- Tab 1: 本章信息 -->
       <NTabPane name="info" tab="本章信息" class="flex-1 overflow-auto px-3 py-2">
         <NEmpty v-if="!activeChapter" description="选择一个章节查看信息" class="py-10" size="small" />
-        <NDescriptions v-else label-placement="left" :column="1" size="small" bordered>
+        <NDescriptions v-else label-placement="left" :column="1" size="small" bordered label-style="width: 100px;">
           <NDescriptionsItem label="章节名">{{ activeChapter.title }}</NDescriptionsItem>
           <NDescriptionsItem label="状态">
             <NTag :type="statusMap[activeChapter.status]?.type ?? 'default'" size="small">
