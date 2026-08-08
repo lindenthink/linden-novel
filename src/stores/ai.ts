@@ -51,10 +51,13 @@ export const useAiStore = defineStore("ai", () => {
     error.value = null;
     try {
       const provider = await aiApi.createAiProvider(input);
-      providers.value.push(provider);
       if (provider.is_default) {
+        providers.value.forEach((p) => {
+          if (p.id !== provider.id) p.is_default = false;
+        });
         defaultProvider.value = provider;
       }
+      providers.value.push(provider);
       return provider;
     } catch (e) {
       error.value = String(e);
@@ -66,12 +69,15 @@ export const useAiStore = defineStore("ai", () => {
     error.value = null;
     try {
       const provider = await aiApi.updateAiProvider(id, input);
+      if (provider.is_default) {
+        providers.value.forEach((p) => {
+          if (p.id !== provider.id) p.is_default = false;
+        });
+        defaultProvider.value = provider;
+      }
       const index = providers.value.findIndex((p) => p.id === id);
       if (index !== -1) {
         providers.value[index] = provider;
-      }
-      if (provider.is_default) {
-        defaultProvider.value = provider;
       }
       return provider;
     } catch (e) {
@@ -112,6 +118,11 @@ export const useAiStore = defineStore("ai", () => {
       const key = await aiApi.createAiApiKey(input);
       if (!apiKeys.value[input.provider_id]) {
         apiKeys.value[input.provider_id] = [];
+      }
+      if (key.is_default) {
+        apiKeys.value[input.provider_id].forEach((k) => {
+          if (k.id !== key.id) k.is_default = false;
+        });
       }
       apiKeys.value[input.provider_id].push(key);
       return key;

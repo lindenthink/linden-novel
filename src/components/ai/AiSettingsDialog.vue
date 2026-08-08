@@ -57,6 +57,11 @@ const providerForm = ref({
   is_default: false,
 });
 
+function openProviderForm() {
+  resetProviderForm();
+  showProviderForm.value = true;
+}
+
 // 类型切换时自动填充预设（仅新建时）
 watch(
   () => providerForm.value.provider_type,
@@ -215,6 +220,21 @@ function resetApiKeyForm() {
   };
 }
 
+// 监听 provider 切换，同步 API Key 表单的 provider_id
+watch(
+  () => selectedProviderId.value,
+  (id) => {
+    if (id) {
+      apikeyForm.value.provider_id = id;
+    }
+  }
+);
+
+function openApiKeyForm() {
+  resetApiKeyForm();
+  showApiKeyForm.value = true;
+}
+
 async function saveApiKey() {
   try {
     await aiStore.createApiKey(apikeyForm.value);
@@ -334,6 +354,11 @@ function resetTemplateForm() {
   editingTemplate.value = null;
 }
 
+function openTemplateForm() {
+  resetTemplateForm();
+  showTemplateForm.value = true;
+}
+
 function editTemplate(template: PromptTemplate) {
   editingTemplate.value = template;
   templateForm.value = {
@@ -442,6 +467,7 @@ onMounted(async () => {
   await aiStore.loadTemplates();
   if (aiStore.providers.length > 0) {
     selectedProviderId.value = aiStore.providers[0].id;
+    apikeyForm.value.provider_id = selectedProviderId.value;
     await aiStore.loadApiKeys(selectedProviderId.value);
   }
 });
@@ -459,7 +485,7 @@ onMounted(async () => {
       <!-- Provider 管理 -->
       <NTabPane name="provider" tab="Provider 管理">
         <NSpace vertical>
-          <NButton type="primary" @click="showProviderForm = true">
+          <NButton type="primary" @click="openProviderForm">
             <template #icon>
               <span class="i-carbon-add" />
             </template>
@@ -516,7 +542,7 @@ onMounted(async () => {
             </NFormItem>
           </NForm>
 
-          <NButton type="primary" @click="showApiKeyForm = true" :disabled="!selectedProviderId">
+          <NButton type="primary" @click="openApiKeyForm" :disabled="!selectedProviderId">
             <template #icon>
               <span class="i-carbon-add" />
             </template>
@@ -553,7 +579,7 @@ onMounted(async () => {
       <!-- Prompt Template 管理 -->
       <NTabPane name="template" tab="Prompt 模板">
         <NSpace vertical>
-          <NButton type="primary" @click="showTemplateForm = true">
+          <NButton type="primary" @click="openTemplateForm">
             <template #icon>
               <span class="i-carbon-add" />
             </template>
