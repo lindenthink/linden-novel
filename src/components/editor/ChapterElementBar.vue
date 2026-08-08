@@ -3,10 +3,12 @@ import { computed, ref, watch } from "vue";
 import { NTag, NButton, NDropdown, useMessage } from "naive-ui";
 import { useChapterStore } from "../../stores/chapter";
 import { useElementStore } from "../../stores/element";
+import { useProjectStore } from "../../stores/project";
 import type { ElementType } from "../../types";
 
 const chapterStore = useChapterStore();
 const elementStore = useElementStore();
+const projectStore = useProjectStore();
 const message = useMessage();
 
 const showAddDropdown = ref(false);
@@ -103,6 +105,23 @@ watch(
   async (id) => {
     if (id) {
       await elementStore.fetchChapterElements(id);
+    }
+  },
+  { immediate: true },
+);
+
+// 确保元素名称数据已加载（人物、故事线、世界观）
+// 这些数据原本只在右侧面板对应标签页点击时才加载，
+// 但 ChapterElementBar 渲染标签时需要它们来显示名称
+watch(
+  () => projectStore.currentProject?.id,
+  async (projectId) => {
+    if (projectId) {
+      await Promise.all([
+        elementStore.fetchCharacters(projectId),
+        elementStore.fetchStorylines(projectId),
+        elementStore.fetchWorldview(projectId),
+      ]);
     }
   },
   { immediate: true },

@@ -126,9 +126,17 @@ struct OpenAiEmbeddingData {
 impl AiProvider for OpenAiProvider {
     async fn complete(&self, request: CompletionRequest) -> Result<CompletionResponse, AppError> {
         let url = self.build_url("/chat/completions");
-        
+
+        tracing::info!(
+            provider = %self.name,
+            model = %request.model,
+            msg_count = request.messages.len(),
+            stream = false,
+            "AI complete request"
+        );
+
         let openai_req = OpenAiRequest {
-            model: request.model,
+            model: request.model.clone(),
             messages: request.messages.into_iter().map(|m| OpenAiMessage {
                 role: m.role,
                 content: m.content,
@@ -145,24 +153,41 @@ impl AiProvider for OpenAiProvider {
             .json(&openai_req)
             .send()
             .await
-            .map_err(|e| AppError::Internal(format!("HTTP request failed: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!(provider = %self.name, model = %request.model, error = %e, "AI complete HTTP request failed");
+                AppError::Internal(format!("HTTP request failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
+            tracing::error!(provider = %self.name, model = %request.model, status = %status, body = %body, "AI complete API error");
             return Err(AppError::Internal(format!("API error {}: {}", status, body)));
         }
 
         let openai_resp: OpenAiResponse = response
             .json()
             .await
-            .map_err(|e| AppError::Internal(format!("Failed to parse response: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!(provider = %self.name, model = %request.model, error = %e, "Failed to parse AI complete response");
+                AppError::Internal(format!("Failed to parse response: {}", e))
+            })?;
 
         let content = openai_resp.choices
             .first()
             .and_then(|c| c.message.as_ref())
             .map(|m| m.content.clone())
             .unwrap_or_default();
+
+        tracing::info!(
+            provider = %self.name,
+            model = %openai_resp.model,
+            content_len = content.len(),
+            prompt_tokens = openai_resp.usage.as_ref().map(|u| u.prompt_tokens),
+            completion_tokens = openai_resp.usage.as_ref().map(|u| u.completion_tokens),
+            total_tokens = openai_resp.usage.as_ref().map(|u| u.total_tokens),
+            "AI complete response"
+        );
 
         Ok(CompletionResponse {
             id: openai_resp.id,
@@ -181,9 +206,17 @@ impl AiProvider for OpenAiProvider {
         request: CompletionRequest,
     ) -> Result<Box<dyn Iterator<Item = Result<StreamChunk, AppError>> + Send>, AppError> {
         let url = self.build_url("/chat/completions");
+
+        tracing::info!(
+            provider = %self.name,
+            model = %request.model,
+            msg_count = request.messages.len(),
+            stream = true,
+            "AI complete stream request"
+        );
         
         let openai_req = OpenAiRequest {
-            model: request.model,
+            model: request.model.clone(),
             messages: request.messages.into_iter().map(|m| OpenAiMessage {
                 role: m.role,
                 content: m.content,
@@ -200,13 +233,19 @@ impl AiProvider for OpenAiProvider {
             .json(&openai_req)
             .send()
             .await
-            .map_err(|e| AppError::Internal(format!("HTTP request failed: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!(provider = %self.name, model = %request.model, error = %e, "AI stream HTTP request failed");
+                AppError::Internal(format!("HTTP request failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
+            tracing::error!(provider = %self.name, model = %request.model, status = %status, body = %body, "AI stream API error");
             return Err(AppError::Internal(format!("API error {}: {}", status, body)));
         }
+
+        tracing::info!(provider = %self.name, model = %request.model, "AI stream response started");
 
         let stream = response.bytes_stream();
         let buffer = Arc::new(Mutex::new(String::new()));
@@ -279,8 +318,15 @@ impl AiProvider for OpenAiProvider {
             request.model
         };
 
+        tracing::info!(
+            provider = %self.name,
+            model = %model,
+            input_len = request.input.len(),
+            "AI embedding request"
+        );
+
         let openai_req = OpenAiEmbeddingRequest {
-            model,
+            model: model.clone(),
             input: request.input,
         };
 
@@ -292,11 +338,15 @@ impl AiProvider for OpenAiProvider {
             .json(&openai_req)
             .send()
             .await
-            .map_err(|e| AppError::Internal(format!("Embedding HTTP request failed: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!(provider = %self.name, model = %model, error = %e, "AI embedding HTTP request failed");
+                AppError::Internal(format!("Embedding HTTP request failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
+            tracing::error!(provider = %self.name, model = %model, status = %status, body = %body, "AI embedding API error");
             return Err(AppError::Internal(format!(
                 "Embedding API error {}: {}",
                 status, body
@@ -306,7 +356,10 @@ impl AiProvider for OpenAiProvider {
         let openai_resp: OpenAiEmbeddingResponse = response
             .json()
             .await
-            .map_err(|e| AppError::Internal(format!("Failed to parse embedding response: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!(provider = %self.name, model = %model, error = %e, "Failed to parse embedding response");
+                AppError::Internal(format!("Failed to parse embedding response: {}", e))
+            })?;
 
         let data = openai_resp
             .data
@@ -315,6 +368,12 @@ impl AiProvider for OpenAiProvider {
             .ok_or_else(|| AppError::Internal("Empty embedding response".into()))?;
 
         let dim = data.embedding.len();
+        tracing::info!(
+            provider = %self.name,
+            model = %openai_resp.model,
+            dim = dim,
+            "AI embedding response"
+        );
         Ok(EmbeddingResponse {
             vector: data.embedding,
             model: openai_resp.model,

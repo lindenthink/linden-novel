@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
-import { NButton, NInput, NSpace, NIcon, useMessage } from "naive-ui";
+import { NButton, NInput, NSpace, NIcon, NAlert, useMessage } from "naive-ui";
 import { useAiStore } from "../../stores/ai";
+import { useChapterStore } from "../../stores/chapter";
+import { listChapterElements } from "../../api/element";
 import type { Message } from "../../types/ai";
+import type { ChapterElement } from "../../types";
 
 const props = defineProps<{
   visible: boolean;
@@ -18,10 +21,17 @@ const emit = defineEmits<{
 }>();
 
 const aiStore = useAiStore();
+const chapterStore = useChapterStore();
 const message = useMessage();
 
 const userInput = ref("");
 const isLoading = ref(false);
+const chapterElements = ref<ChapterElement[]>([]);
+
+// 检查章节是否关联了角色
+const hasCharacterAssociation = computed(() => {
+  return chapterElements.value.some((el) => el.element_type === "character");
+});
 
 // 根据模式显示不同的标题
 const modeTitle = computed(() => {
@@ -127,12 +137,25 @@ onBeforeUnmount(() => {
   window.removeEventListener("keydown", handleKeydown);
 });
 
-// 监听 visible 变化，重置状态
-watch(() => props.visible, (newVal) => {
+// 监听 visible 变化，重置状态并加载章节元素
+watch(() => props.visible, async (newVal) => {
   if (newVal) {
     userInput.value = "";
     aiStore.streamContent = "";
     aiStore.streamError = null;
+    
+    // 加载章节关联元素
+    const activeChapterId = chapterStore.activeChapterId;
+    if (activeChapterId) {
+      try {
+        chapterElements.value = await listChapterElements(activeChapterId);
+      } catch (e) {
+        console.error("加载章节元素失败:", e);
+        chapterElements.value = [];
+      }
+    } else {
+      chapterElements.value = [];
+    }
   }
 });
 </script>
@@ -159,6 +182,17 @@ watch(() => props.visible, (newVal) => {
 
           <!-- 输入区 -->
           <div class="input-section">
+            <!-- 角色关联警告 -->
+            <NAlert
+              v-if="!hasCharacterAssociation"
+              type="warning"
+              title="当前章节未关联角色"
+              style="margin-bottom: 16px"
+            >
+              AI 生成时无法识别主要角色，生成内容可能出现角色不一致。
+              建议先在编辑器中通过侧边栏为当前章节关联关键角色、故事线等元素。
+            </NAlert>
+            
             <NInput
               v-model:value="userInput"
               type="textarea"

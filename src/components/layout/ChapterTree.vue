@@ -66,10 +66,17 @@ const treeData = computed<ChapterTreeNode[]>(() => {
   }));
 });
 
-// ---- NTree 全局 nodeProps ----
+// ---- NTree 全局 nodeProps（直接绑定右键事件）----
 function getNodeProps({ option }: { option: ChapterTreeNode }) {
   return {
-    "data-node-key": String(option.key),
+    onContextmenu: (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      contextNode.value = option;
+      contextX.value = e.clientX;
+      contextY.value = e.clientY;
+      contextmenu.value = true;
+    },
   };
 }
 
@@ -104,38 +111,6 @@ function getContextMenu(node: ChapterTreeNode) {
     { type: "divider" as const, key: "d1" },
     { label: "删除章节", key: "delete-ch" },
   ];
-}
-
-// NTree 节点右键菜单处理
-function handleNodeContextMenu(e: MouseEvent) {
-  e.preventDefault();
-  
-  // 通过 data-node-key 属性找到被点击的节点
-  const target = e.target as HTMLElement;
-  const nodeEl = target.closest("[data-node-key]") as HTMLElement | null;
-  if (!nodeEl) return;
-  
-  const key = nodeEl.getAttribute("data-node-key");
-  if (!key) return;
-
-  const node = findNode(key, treeData.value);
-  if (!node) return;
-
-  contextNode.value = node;
-  contextX.value = e.clientX;
-  contextY.value = e.clientY;
-  contextmenu.value = true;
-}
-
-function findNode(key: string, nodes: ChapterTreeNode[]): ChapterTreeNode | undefined {
-  for (const n of nodes) {
-    if (String(n.key) === key) return n;
-    if (n.children) {
-      const found = findNode(key, n.children as ChapterTreeNode[]);
-      if (found) return found;
-    }
-  }
-  return undefined;
 }
 
 async function handleContextSelect(key: string) {
@@ -244,7 +219,7 @@ async function addVolume() {
     </div>
 
     <!-- 树 -->
-    <div class="flex-1 overflow-auto py-1" @contextmenu.prevent="handleNodeContextMenu">
+    <div class="flex-1 overflow-auto py-1">
       <NEmpty
         v-if="projectStore.volumes.length === 0"
         description="暂无卷，点击 + 新建"

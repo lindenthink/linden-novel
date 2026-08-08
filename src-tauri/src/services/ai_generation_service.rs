@@ -20,8 +20,42 @@ pub async fn generate(
     // 收集上下文（启用 RAG 检索）
     let context = context_collector::collect_context_with_rag(pool, Some(app_data_dir), chapter_id).await?;
 
+    // 日志：输出上下文信息
+    tracing::info!("=== AI Generation Context ===");
+    tracing::info!("Chapter ID: {}", chapter_id);
+    tracing::info!("Chapter Title: {}", context.chapter_title);
+    tracing::info!("Chapter Summary: {:?}", context.chapter_summary);
+    tracing::info!("Chapter Content Length: {} chars", context.chapter_content.len());
+    tracing::info!("Previous Chapter Summary: {:?}", context.previous_chapter_summary);
+    tracing::info!("Next Chapter Summary: {:?}", context.next_chapter_summary);
+    tracing::info!("Characters Count: {}", context.characters.len());
+    for (i, char) in context.characters.iter().enumerate() {
+        tracing::info!("  Character {}: {} - {:?}", i + 1, char.name, char.description);
+    }
+    tracing::info!("Storylines Count: {}", context.storylines.len());
+    for (i, storyline) in context.storylines.iter().enumerate() {
+        tracing::info!("  Storyline {}: {} - {:?}", i + 1, storyline.title, storyline.description);
+    }
+    tracing::info!("Worldviews Count: {}", context.worldviews.len());
+    for (i, worldview) in context.worldviews.iter().enumerate() {
+        tracing::info!("  Worldview {}: {} - {:?}", i + 1, worldview.name, worldview.description);
+    }
+    if let Some(rag_ctx) = &context.rag_context {
+        tracing::info!("RAG Context Length: {} chars", rag_ctx.len());
+        tracing::debug!("RAG Context Content:\n{}", rag_ctx);
+    } else {
+        tracing::info!("RAG Context: None");
+    }
+
     // 构建提示词
     let prompt = generation_prompts::build_generation_prompt(&context, mode, user_instruction);
+
+    // 日志：输出完整提示词
+    tracing::info!("=== AI Generation Prompt ===");
+    tracing::info!("Mode: {}", mode);
+    tracing::info!("User Instruction: {:?}", user_instruction);
+    tracing::info!("Prompt Length: {} chars", prompt.len());
+    tracing::debug!("Full Prompt:\n{}", prompt);
 
     // 获取默认 provider
     let provider = ai_provider_service::get_default(pool)
@@ -65,7 +99,23 @@ pub async fn generate(
     };
 
     // 调用 AI
+    tracing::info!(
+        chapter_id = chapter_id,
+        mode = mode,
+        provider = %ai_provider.name(),
+        model = %request.model,
+        "AI generation calling provider"
+    );
+
     let response = ai_provider.complete(request).await?;
+
+    tracing::info!(
+        chapter_id = chapter_id,
+        mode = mode,
+        content_len = response.content.len(),
+        model = %response.model,
+        "AI generation completed"
+    );
 
     // 保存历史记录
     let history = ai_generation_repo::create(

@@ -8,14 +8,9 @@ mod services;
 
 use tauri::Manager;
 
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // 初始化日志：写 app 日志目录
+    // 初始化日志：写 app 日志目录，按天轮转
     let log_filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "info,linden_novel=debug".into());
 
@@ -24,17 +19,31 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
-            // 日志初始化
+            // 日志初始化：文件（按天轮转）+ 控制台
             let log_dir = app.path().app_log_dir()?.to_path_buf();
             std::fs::create_dir_all(&log_dir).ok();
-            let log_file = std::fs::File::create(log_dir.join("linden.log")).ok();
-            if let Some(file) = log_file {
-                tracing_subscriber::fmt()
-                    .with_env_filter(log_filter)
-                    .with_writer(file)
-                    .with_ansi(false)
-                    .init();
-            }
+
+            let file_appender = tracing_appender::rolling::daily(&log_dir, "linden.log");
+            let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+
+            // 将 _guard 保存到静态变量，防止被提前 drop
+            // 使用 Box::leak 确保 guard 在应用生命周期内一直存活
+            let guard = Box::new(_guard);
+            let _static_guard: &'static tracing_appender::non_blocking::WorkerGuard =
+                Box::leak(guard);
+
+            tracing_subscriber::fmt()
+                .with_env_filter(log_filter)
+                .with_writer(non_blocking)
+                .with_ansi(false)
+                .with_target(true)
+                .with_thread_ids(false)
+                .with_file(false)
+                .with_line_number(false)
+                .with_timer(tracing_subscriber::fmt::time::ChronoLocal::new(
+                    "%Y-%m-%d %H:%M:%S".to_string(),
+                ))
+                .init();
 
             // 初始化数据库
             let app_data_dir = app.path().app_data_dir()?.to_path_buf();
@@ -46,7 +55,6 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            greet,
             // project
             commands::project::list_projects,
             commands::project::get_project,

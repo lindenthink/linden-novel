@@ -3,7 +3,9 @@ import { ref, computed, watch } from 'vue';
 import { NModal, NSelect, NInput, NInputNumber, NButton, NSpace, NAlert, NSpin, NTag, NPopconfirm } from 'naive-ui';
 import { useAiGenerationStore } from '../../stores/ai_generation';
 import { useChapterStore } from '../../stores/chapter';
+import { listChapterElements } from '../../api/element';
 import type { GenerateRequest } from '../../types/ai_generation';
+import type { ChapterElement } from '../../types';
 
 const props = defineProps<{
   show: boolean;
@@ -16,6 +18,9 @@ const emit = defineEmits<{
 
 const aiGenerationStore = useAiGenerationStore();
 const chapterStore = useChapterStore();
+
+// 章节关联元素
+const chapterElements = ref<ChapterElement[]>([]);
 
 // 表单数据
 const form = ref<GenerateRequest>({
@@ -43,11 +48,24 @@ const canGenerate = computed(() => {
   return activeChapterId.value && !aiGenerationStore.loading;
 });
 
+// 检查章节是否关联了角色
+const hasCharacterAssociation = computed(() => {
+  return chapterElements.value.some(el => el.element_type === 'character');
+});
+
 // 监听对话框显示
-watch(() => props.show, (newVal) => {
+watch(() => props.show, async (newVal) => {
   if (newVal && activeChapterId.value) {
     form.value.chapter_id = activeChapterId.value;
     aiGenerationStore.loadHistory(activeChapterId.value);
+    
+    // 加载章节关联元素
+    try {
+      chapterElements.value = await listChapterElements(activeChapterId.value);
+    } catch (e) {
+      console.error('加载章节元素失败:', e);
+      chapterElements.value = [];
+    }
   }
 });
 
@@ -114,6 +132,16 @@ function formatTime(time: string): string {
     <div class="ai-generation-dialog">
       <!-- 左侧：生成表单 -->
       <div class="generation-form">
+        <!-- 上下文警告 -->
+        <NAlert
+          v-if="!hasCharacterAssociation"
+          type="warning"
+          title="当前章节未关联角色"
+        >
+          AI 续写时无法识别主要角色，生成内容可能出现角色不一致。
+          建议先在编辑器中通过侧边栏为当前章节关联关键角色、故事线等元素。
+        </NAlert>
+
         <div class="form-section">
           <div class="form-label">生成模式</div>
           <NSelect

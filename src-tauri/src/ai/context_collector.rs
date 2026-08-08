@@ -133,6 +133,20 @@ pub async fn collect_context_with_rag(
         }
     }
 
+    // 如果章节没有关联角色，自动包含项目中的主要角色（按 order_index 排序的前 3 个）
+    if characters.is_empty() {
+        tracing::info!("Chapter has no associated characters, loading project's main characters");
+        if let Ok(project_characters) = character_repo::list_by_project(pool, &chapter.project_id).await {
+            for c in project_characters.iter().take(3) {
+                characters.push(CharacterSummary {
+                    name: c.name.clone(),
+                    description: c.description.clone(),
+                    personality: c.role.clone(),
+                });
+            }
+        }
+    }
+
     // 4. 前后章节摘要
     let (previous_chapter_summary, next_chapter_summary) =
         get_adjacent_summaries(pool, &chapter).await?;

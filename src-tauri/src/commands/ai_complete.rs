@@ -45,6 +45,13 @@ pub async fn ai_complete(
     pool: State<'_, SqlitePool>,
     request: CompleteRequest,
 ) -> Result<CompleteResponse, AppError> {
+    tracing::info!(
+        provider_id = ?request.provider_id,
+        model = %request.model,
+        msg_count = request.messages.len(),
+        "ai_complete command invoked"
+    );
+
     // 获取 provider
     let provider = if let Some(provider_id) = &request.provider_id {
         ai_provider_service::get(pool.inner(), provider_id).await?
@@ -87,6 +94,12 @@ pub async fn ai_complete(
     // 调用 AI
     let response = ai_provider.complete(completion_request).await?;
 
+    tracing::info!(
+        model = %response.model,
+        content_len = response.content.len(),
+        "ai_complete command completed"
+    );
+
     Ok(CompleteResponse {
         content: response.content,
         model: response.model,
@@ -104,6 +117,13 @@ pub async fn ai_complete_stream(
     pool: State<'_, SqlitePool>,
     request: CompleteRequest,
 ) -> Result<(), AppError> {
+    tracing::info!(
+        provider_id = ?request.provider_id,
+        model = %request.model,
+        msg_count = request.messages.len(),
+        "ai_complete_stream command invoked"
+    );
+
     // 获取 provider
     let provider = if let Some(provider_id) = &request.provider_id {
         ai_provider_service::get(pool.inner(), provider_id).await?
@@ -173,6 +193,8 @@ pub async fn ai_complete_stream(
     app.emit("ai-stream-done", ()).map_err(|e| {
         AppError::Internal(format!("Failed to emit stream done: {}", e))
     })?;
+
+    tracing::info!(model = %request.model, "ai_complete_stream command completed");
 
     Ok(())
 }
