@@ -20,7 +20,6 @@ export default defineConfig({
       },
     }),
   ],
-  dark: "class",
   safelist: [
     // DraggableHandle 动态注入
     "i-carbon-draggable",
@@ -56,7 +55,7 @@ export default defineConfig({
   theme: {
     colors: {
       linden: {
-        primary: "#7c5cff",
+        primary: "#18a058",
       },
       gray: {
         850: "#1a1a2e",

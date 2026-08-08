@@ -5,7 +5,6 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { NButton, NSpace, NDropdown, useMessage } from "naive-ui";
 import { useProjectStore } from "../stores/project";
 import { useChapterStore } from "../stores/chapter";
-import { useTheme } from "../composables/useTheme";
 import { useLongContext } from "../composables/useLongContext";
 import { exportProject } from "../api/io";
 import ThreeColumnLayout from "../components/layout/ThreeColumnLayout.vue";
@@ -13,14 +12,12 @@ import ChapterTree from "../components/layout/ChapterTree.vue";
 import RightSidebar from "../components/layout/RightSidebar.vue";
 import StatusBar from "../components/layout/StatusBar.vue";
 import LindenEditor from "../components/editor/LindenEditor.vue";
-import AiSettingsDialog from "../components/ai/AiSettingsDialog.vue";
 
 const route = useRoute();
 const router = useRouter();
 const projectStore = useProjectStore();
 const chapterStore = useChapterStore();
 const message = useMessage();
-const { toggle, isDark } = useTheme();
 const {
   summaryLoading,
   batchLoading,
@@ -83,9 +80,6 @@ async function handleExport(key: string) {
     exporting.value = false;
   }
 }
-
-// ---- AI 设置 ----
-const showAiSettings = ref(false);
 
 // ---- 长上下文操作 ----
 async function generateSummaryForCurrent() {
@@ -195,12 +189,6 @@ watch(() => route.params.id, (newId) => {
             上下文
           </NButton>
         </NDropdown>
-        <NButton quaternary size="small" @click="showAiSettings = true">
-          <template #icon>
-            <span class="i-carbon-ai" />
-          </template>
-          AI 设置
-        </NButton>
         <NDropdown
           :options="exportOptions"
           @select="handleExport"
@@ -213,12 +201,6 @@ watch(() => route.params.id, (newId) => {
             导出
           </NButton>
         </NDropdown>
-        <NButton quaternary size="small" @click="toggle">
-          <template #icon>
-            <span v-if="isDark" class="i-carbon-moon" />
-            <span v-else class="i-carbon-sun" />
-          </template>
-        </NButton>
       </NSpace>
     </header>
 
@@ -240,8 +222,5 @@ watch(() => route.params.id, (newId) => {
 
     <!-- 状态栏 -->
     <StatusBar />
-
-    <!-- AI 设置对话框 -->
-    <AiSettingsDialog v-model:show="showAiSettings" />
   </div>
 </template>

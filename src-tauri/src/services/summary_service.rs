@@ -156,23 +156,23 @@ pub async fn generate_chapter_summary(
     );
 
     // 8. 触发嵌入生成
-    if let Err(e) = embedding_service::generate_and_store(
-        pool,
-        app_data_dir,
-        &chapter.project_id,
-        "chapter",
-        chapter_id,
-        &summary,
-        "",
-    )
-    .await
-    {
-        tracing::warn!(
-            "Failed to generate embedding for chapter summary {}: {} (summary still saved)",
-            chapter_id,
-            e
-        );
-    }
+    // if let Err(e) = embedding_service::generate_and_store(
+    //     pool,
+    //     app_data_dir,
+    //     &chapter.project_id,
+    //     "chapter",
+    //     chapter_id,
+    //     &summary,
+    //     "",
+    // )
+    // .await
+    // {
+    //     tracing::warn!(
+    //         "Failed to generate embedding for chapter summary {}: {} (summary still saved)",
+    //         chapter_id,
+    //         e
+    //     );
+    // }
 
     Ok(summary)
 }
