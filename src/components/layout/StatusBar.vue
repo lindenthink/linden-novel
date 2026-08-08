@@ -3,11 +3,9 @@ import { computed } from "vue";
 import { useChapterStore } from "../../stores/chapter";
 import { useProjectStore } from "../../stores/project";
 import { useWordCount } from "../../composables/useWordCount";
-import { useEditorUI } from "../../composables/useEditorUI";
 
 const chapterStore = useChapterStore();
 const projectStore = useProjectStore();
-const { focusMode, typewriterMode, showAIGenerationDialog } = useEditorUI();
 
 // 实时字数统计（前端估值）：传入当前正文文本的 ref
 const contentText = computed(() => chapterStore.activeContent?.content_text ?? "");
@@ -58,33 +56,8 @@ const saveLabel = computed(() => {
     <!-- 状态 -->
     <span v-if="statusLabel">{{ statusLabel }}</span>
 
-    <!-- 右侧：模式切换 + 保存状态 -->
+    <!-- 右侧：保存状态 -->
     <div class="ml-auto flex items-center gap-3">
-      <button
-        class="hover:text-linden-primary transition-colors opacity-50"
-        @click="showAIGenerationDialog = true"
-        title="AI 生成 (Ctrl+Shift+G)"
-      >
-        AI 生成
-      </button>
-      <span class="opacity-30">|</span>
-      <button
-        class="hover:text-linden-primary transition-colors"
-        :class="typewriterMode ? 'text-linden-primary' : 'opacity-50'"
-        @click="typewriterMode = !typewriterMode"
-        title="打字机模式：光标始终居中"
-      >
-        打字机
-      </button>
-      <button
-        class="hover:text-linden-primary transition-colors"
-        :class="focusMode ? 'text-linden-primary' : 'opacity-50'"
-        @click="focusMode = !focusMode"
-        title="专注模式：隐藏工具栏，沉浸写作"
-      >
-        专注
-      </button>
-      <span class="opacity-30">|</span>
       <span :class="chapterStore.dirty ? 'text-amber-500' : 'opacity-50'">
         {{ saveLabel }}
       </span>

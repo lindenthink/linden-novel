@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed, h, ref } from "vue";
+import { computed, h, ref, watch, nextTick } from "vue";
 import {
   NTree,
   NDropdown,
   NEmpty,
   NButton,
+  NInput,
+  NSelect,
+  NModal,
   useMessage,
   useDialog,
   type TreeOption,
@@ -26,11 +29,51 @@ const chapterStore = useChapterStore();
 const message = useMessage();
 const dialog = useDialog();
 
+// ---- 文本输入弹窗（替代原生 prompt）----
+const textInputVisible = ref(false);
+const textInputTitle = ref("");
+const textInputValue = ref("");
+const textInputCallback = ref<((value: string) => void) | null>(null);
+const textInputRef = ref<InstanceType<typeof NInput> | null>(null);
+
+function openTextInput(title: string, defaultValue: string, callback: (value: string) => void) {
+  textInputTitle.value = title;
+  textInputValue.value = defaultValue;
+  textInputCallback.value = callback;
+  textInputVisible.value = true;
+  nextTick(() => {
+    textInputRef.value?.focus();
+  });
+}
+
+function confirmTextInput() {
+  const value = textInputValue.value.trim();
+  if (value && textInputCallback.value) {
+    textInputCallback.value(value);
+  }
+  textInputCallback.value = null;
+}
+
 // ---- 右键菜单 ----
 const contextmenu = ref(false);
 const contextNode = ref<ChapterTreeNode | null>(null);
 const contextX = ref(0);
 const contextY = ref(0);
+
+// ---- 过滤 ----
+const searchKeyword = ref("");
+const statusFilter = ref<string>("all");
+
+const statusOptions = [
+  { label: "全部状态", value: "all" },
+  { label: "草稿", value: "draft" },
+  { label: "写作中", value: "writing" },
+  { label: "定稿", value: "final" },
+];
+
+const isFiltering = computed(
+  () => searchKeyword.value.trim() !== "" || statusFilter.value !== "all",
+);
 
 
 
@@ -65,6 +108,45 @@ const treeData = computed<ChapterTreeNode[]>(() => {
       })),
   }));
 });
+
+// ---- 过滤后的树数据 ----
+const displayTreeData = computed<ChapterTreeNode[]>(() => {
+  if (!isFiltering.value) return treeData.value;
+
+  const keyword = searchKeyword.value.trim().toLowerCase();
+  const status = statusFilter.value;
+
+  return treeData.value
+    .map((vol): ChapterTreeNode | null => {
+      const allChildren = (vol.children ?? []) as ChapterTreeNode[];
+      const children = allChildren.filter((ch) => {
+        const nameMatch = !keyword || (ch.label as string).toLowerCase().includes(keyword);
+        const statusMatch = status === "all" || ch.chapter?.status === status;
+        return nameMatch && statusMatch;
+      });
+      if (children.length === 0) return null;
+      return { ...vol, children };
+    })
+    .filter((vol): vol is ChapterTreeNode => vol !== null);
+});
+
+// ---- 展开控制：过滤时自动展开所有匹配卷 ----
+const expandedKeys = ref<string[]>([]);
+
+watch(
+  [treeData, isFiltering],
+  () => {
+    const source = isFiltering.value ? displayTreeData.value : treeData.value;
+    expandedKeys.value = source
+      .filter((v) => v.isVolume)
+      .map((v) => v.key as string);
+  },
+  { immediate: true },
+);
+
+function handleExpandKeys(keys: string[]) {
+  expandedKeys.value = keys;
+}
 
 // ---- NTree 全局 nodeProps（直接绑定右键事件）----
 function getNodeProps({ option }: { option: ChapterTreeNode }) {
@@ -131,11 +213,15 @@ async function handleContextSelect(key: string) {
     }
 
     if (key === "rename-vol" && node.volumeId) {
-      const newTitle = prompt("输入新的卷名：", node.label as string);
-      if (newTitle?.trim()) {
-        await projectStore.updateVolume(node.volumeId, { title: newTitle.trim() });
-        message.success("已重命名");
-      }
+      const volId = node.volumeId;
+      openTextInput("重命名卷", node.label as string, async (newTitle) => {
+        try {
+          await projectStore.updateVolume(volId, { title: newTitle });
+          message.success("已重命名");
+        } catch (e: any) {
+          message.error(e?.message || "重命名失败");
+        }
+      });
     }
 
     if (key === "delete-vol" && node.volumeId) {
@@ -160,11 +246,15 @@ async function handleContextSelect(key: string) {
 
     // ---- 章节操作 ----
     if (key === "rename-ch" && node.chapterId) {
-      const newTitle = prompt("输入新的章节名：", node.label as string);
-      if (newTitle?.trim()) {
-        await chapterStore.updateChapterMeta(node.chapterId, { title: newTitle.trim() });
-        message.success("已重命名");
-      }
+      const chId = node.chapterId;
+      openTextInput("重命名章节", node.label as string, async (newTitle) => {
+        try {
+          await chapterStore.updateChapterMeta(chId, { title: newTitle });
+          message.success("已重命名");
+        } catch (e: any) {
+          message.error(e?.message || "重命名失败");
+        }
+      });
     }
 
     if (key.startsWith("status-") && node.chapterId) {
@@ -193,15 +283,15 @@ async function handleContextSelect(key: string) {
 
 
 // ---- 新建卷 ----
-async function addVolume() {
-  const title = prompt("输入卷名：", `第 ${projectStore.volumes.length + 1} 卷`);
-  if (!title?.trim()) return;
-  try {
-    await projectStore.createVolume(title.trim());
-    message.success("卷已创建");
-  } catch (e: any) {
-    message.error(e?.message || "创建失败");
-  }
+function addVolume() {
+  openTextInput("新建卷", `第 ${projectStore.volumes.length + 1} 卷`, async (title) => {
+    try {
+      await projectStore.createVolume(title);
+      message.success("卷已创建");
+    } catch (e: any) {
+      message.error(e?.message || "创建失败");
+    }
+  });
 }
 </script>
 
@@ -218,6 +308,27 @@ async function addVolume() {
       </NButton>
     </div>
 
+    <!-- 过滤区 -->
+    <div class="flex items-center gap-1.5 px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+      <NInput
+        v-model:value="searchKeyword"
+        size="small"
+        clearable
+        placeholder="搜索章节名..."
+        class="flex-1 min-w-0"
+      >
+        <template #prefix>
+          <span class="i-carbon-search text-xs opacity-40" />
+        </template>
+      </NInput>
+      <NSelect
+        v-model:value="statusFilter"
+        size="small"
+        :options="statusOptions"
+        class="w-28 flex-shrink-0"
+      />
+    </div>
+
     <!-- 树 -->
     <div class="flex-1 overflow-auto py-1">
       <NEmpty
@@ -226,16 +337,23 @@ async function addVolume() {
         class="py-8"
         size="small"
       />
+      <NEmpty
+        v-else-if="displayTreeData.length === 0"
+        description="无匹配章节"
+        class="py-8"
+        size="small"
+      />
       <NTree
         v-else
-        :data="treeData"
+        :data="displayTreeData"
         :selected-keys="selectedKeys"
+        :expanded-keys="expandedKeys"
         :node-props="getNodeProps"
         block-line
         expand-on-click
         selectable
-        :default-expand-all="true"
         @update:selected-keys="handleSelect"
+        @update:expanded-keys="handleExpandKeys"
       />
     </div>
 
@@ -249,5 +367,22 @@ async function addVolume() {
       @select="handleContextSelect"
       @clickoutside="contextmenu = false"
     />
+
+    <!-- 文本输入弹窗（新建卷 / 重命名） -->
+    <NModal
+      v-model:show="textInputVisible"
+      preset="dialog"
+      :title="textInputTitle"
+      positive-text="确定"
+      negative-text="取消"
+      @positive-click="confirmTextInput"
+    >
+      <NInput
+        ref="textInputRef"
+        v-model:value="textInputValue"
+        placeholder="请输入名称"
+        @keyup.enter="confirmTextInput"
+      />
+    </NModal>
   </div>
 </template>

@@ -25,8 +25,8 @@ import "./extensions/slashMenu.css";
 const chapterStore = useChapterStore();
 const message = useMessage();
 
-// 编辑器 UI 共享状态（专注模式 / 打字机模式 / AI 生成对话框）
-const { focusMode, typewriterMode, showAIGenerationDialog } = useEditorUI();
+// 编辑器 UI 共享状态（AI 生成对话框）
+const { showAIGenerationDialog } = useEditorUI();
 
 // 右键菜单
 const showContextMenu = ref(false);
@@ -73,10 +73,6 @@ const editor = useEditor({
     const json = editor.getJSON();
     const text = editor.getText();
     chapterStore.updateContent(JSON.stringify(json), text);
-
-    if (typewriterMode.value) {
-      scrollCaretToCenter();
-    }
   },
   onSelectionUpdate: ({ editor }) => {
     const { from, to } = editor.state.selection;
@@ -121,19 +117,6 @@ watch(
   },
   { immediate: true }
 );
-
-// 打字机模式：滚动使光标位于视口中央
-function scrollCaretToCenter() {
-  if (!editor.value) return;
-  const { state, view } = editor.value;
-  const { from } = state.selection;
-  const coords = view.coordsAtPos(from);
-  const scrollContainer = view.dom.parentElement;
-  if (scrollContainer) {
-    const containerHeight = scrollContainer.clientHeight;
-    scrollContainer.scrollTop = coords.top - scrollContainer.offsetTop - containerHeight / 2;
-  }
-}
 
 // 监听 activeContent 变化，同步到编辑器
 watch(
@@ -312,9 +295,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="linden-editor flex flex-col h-full relative" :class="{ 'focus-mode': focusMode }">
+  <div class="linden-editor flex flex-col h-full relative">
     <!-- 章节元素关联栏 -->
-    <ChapterElementBar v-show="!focusMode" />
+    <ChapterElementBar />
 
     <!-- AI 补全面板 -->
     <AICompletionPanel
@@ -354,7 +337,6 @@ onUnmounted(() => {
     <!-- 编辑器内容区（纸张风格） -->
     <div
       class="editor-scroll-area flex-1 overflow-auto relative"
-      :class="{ 'typewriter-scroll': typewriterMode }"
       @click="handleEditorClick"
     >
       <div class="editor-paper mx-auto max-w-3xl px-12 py-10">
@@ -380,12 +362,6 @@ onUnmounted(() => {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   border-radius: 8px;
   min-height: calc(100% - 2rem);
-}
-
-/* 打字机模式：内容区上下留白，使光标可居中 */
-.typewriter-scroll {
-  padding-top: 40vh;
-  padding-bottom: 40vh;
 }
 
 /* 拖拽手柄容器样式 — 外部浮动元素，绝对定位到 .editor-paper */

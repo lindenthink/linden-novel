@@ -71,7 +71,7 @@ function handleDelete(id: string) {
             </div>
             <NPopconfirm @positive-click="handleDelete(item.id)">
               <template #trigger>
-                <NButton quaternary size="tiny" class="ml-2">
+                <NButton quaternary size="tiny" class="ml-2" @click.stop>
                   <template #icon>
                     <span class="i-carbon-trash-can" />
                   </template>

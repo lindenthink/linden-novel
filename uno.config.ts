@@ -49,6 +49,10 @@ export default defineConfig({
     "i-carbon-link",
     // SP4 长上下文
     "i-carbon-search-locate",
+    // 顶部工具栏
+    "i-carbon-watson-machine-learning",
+    // 章节树过滤
+    "i-carbon-search",
     // 实体演变
     "i-carbon-update",
   ],

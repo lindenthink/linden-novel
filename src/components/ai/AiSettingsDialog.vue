@@ -78,9 +78,9 @@ watch(
 function resetProviderForm() {
   providerForm.value = {
     name: "",
-    provider_type: "openai",
-    base_url: "https://api.openai.com",
-    models_json: "gpt-4o",
+    provider_type: "deepseek",
+    base_url: "https://api.deepseek.com",
+    models_json: "deepseek-v4-flash",
     is_default: false,
   };
   editingProvider.value = null;
@@ -504,7 +504,7 @@ onMounted(async () => {
           <NModal v-model:show="showProviderForm" preset="dialog" title="Provider" positive-text="保存" negative-text="取消" @positive-click="saveProvider" @negative-click="resetProviderForm" style="width: 600px">
             <NForm>
               <NFormItem label="名称">
-                <NInput v-model:value="providerForm.name" placeholder="例如：OpenAI" />
+                <NInput v-model:value="providerForm.name" placeholder="例如：Deepseek" />
               </NFormItem>
               <NFormItem label="类型">
                 <NSelect

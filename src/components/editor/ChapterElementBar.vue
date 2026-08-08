@@ -170,7 +170,7 @@ async function handleRemoveElement(elementType: string, elementId: string) {
   >
     <span class="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">本章元素:</span>
 
-    <!-- 已关联的元素标签 -->
+    <!-- 已关联的元素标签 + 添加按钮（同流排列，避免两端割裂） -->
     <div class="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
       <NTag
         v-for="ce in linkedElements"
@@ -191,22 +191,22 @@ async function handleRemoveElement(elementType: string, elementId: string) {
       >
         暂无关联元素
       </span>
-    </div>
 
-    <!-- 添加元素按钮 -->
-    <NDropdown
-      v-model:show="showAddDropdown"
-      trigger="click"
-      :options="addOptions"
-      @select="handleAddElement"
-      :max-height="300"
-    >
-      <NButton size="tiny" quaternary :disabled="addOptions.length === 0">
-        <template #icon>
-          <span class="i-carbon-add" />
-        </template>
-        添加
-      </NButton>
-    </NDropdown>
+      <!-- 添加元素按钮：紧跟在元素标签之后 -->
+      <NDropdown
+        v-model:show="showAddDropdown"
+        trigger="click"
+        :options="addOptions"
+        @select="handleAddElement"
+        :max-height="300"
+      >
+        <NButton size="tiny" quaternary :disabled="addOptions.length === 0">
+          <template #icon>
+            <span class="i-carbon-add" />
+          </template>
+          添加
+        </NButton>
+      </NDropdown>
+    </div>
   </div>
 </template>

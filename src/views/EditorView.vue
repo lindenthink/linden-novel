@@ -6,6 +6,7 @@ import { NButton, NSpace, NDropdown, useMessage } from "naive-ui";
 import { useProjectStore } from "../stores/project";
 import { useChapterStore } from "../stores/chapter";
 import { useLongContext } from "../composables/useLongContext";
+import { useEditorUI } from "../composables/useEditorUI";
 import { exportProject } from "../api/io";
 import ThreeColumnLayout from "../components/layout/ThreeColumnLayout.vue";
 import ChapterTree from "../components/layout/ChapterTree.vue";
@@ -18,6 +19,7 @@ const router = useRouter();
 const projectStore = useProjectStore();
 const chapterStore = useChapterStore();
 const message = useMessage();
+const { showAIGenerationDialog } = useEditorUI();
 const {
   summaryLoading,
   batchLoading,
@@ -79,6 +81,15 @@ async function handleExport(key: string) {
   } finally {
     exporting.value = false;
   }
+}
+
+// ---- AI 生成 ----
+function openAIGeneration() {
+  if (!chapterStore.activeChapterId) {
+    message.warning("请先选择一个章节");
+    return;
+  }
+  showAIGenerationDialog.value = true;
 }
 
 // ---- 长上下文操作 ----
@@ -174,6 +185,12 @@ watch(() => route.params.id, (newId) => {
         </span>
       </div>
       <NSpace size="small" align="center">
+        <NButton quaternary size="small" @click="openAIGeneration">
+          <template #icon>
+            <span class="i-carbon-watson-machine-learning" />
+          </template>
+          AI 生成
+        </NButton>
         <NDropdown
           :options="longContextOptions"
           @select="handleLongContextSelect"
