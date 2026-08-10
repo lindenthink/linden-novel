@@ -2,7 +2,7 @@
 import { onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { save } from "@tauri-apps/plugin-dialog";
-import { NButton, NSpace, NDropdown, NEmpty, useMessage } from "naive-ui";
+import { NButton, NSpace, NDropdown, NEmpty, useMessage, useDialog } from "naive-ui";
 import { useProjectStore } from "../stores/project";
 import { useChapterStore } from "../stores/chapter";
 import { useLongContext } from "../composables/useLongContext";
@@ -19,6 +19,7 @@ const router = useRouter();
 const projectStore = useProjectStore();
 const chapterStore = useChapterStore();
 const message = useMessage();
+const dialog = useDialog();
 const { showAIGenerationDialog } = useEditorUI();
 const {
   summaryLoading,
@@ -113,12 +114,21 @@ async function generateSummaryForCurrent() {
 }
 
 async function batchGenerateAllSummaries() {
-  try {
-    const res = await handleBatchSummaries(projectId);
-    message.success(`批量完成：成功 ${res.success_count}，失败 ${res.failed_count}`);
-  } catch (e: any) {
-    message.error(e?.toString() || "批量摘要生成失败");
-  }
+  dialog.warning({
+    title: "确认批量生成",
+    content:
+      "将为项目内所有章节逐一调用 AI 生成摘要，可能耗时较长且消耗较多 Token，确定继续吗？",
+    positiveText: "继续生成",
+    negativeText: "取消",
+    onPositiveClick: async () => {
+      try {
+        const res = await handleBatchSummaries(projectId);
+        message.success(`批量完成：成功 ${res.success_count}，失败 ${res.failed_count}`);
+      } catch (e: any) {
+        message.error(e?.toString() || "批量摘要生成失败");
+      }
+    },
+  });
 }
 
 async function syncAllEmbeddings() {

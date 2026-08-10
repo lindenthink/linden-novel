@@ -9,6 +9,7 @@ import {
   NButtonGroup,
   NSpin,
   useMessage,
+  useDialog,
 } from "naive-ui";
 import { useEntitySnapshot } from "../../composables/useEntitySnapshot";
 import { useChapterStore } from "../../stores/chapter";
@@ -18,6 +19,7 @@ const props = defineProps<{
 }>();
 
 const message = useMessage();
+const dialog = useDialog();
 const chapterStore = useChapterStore();
 const {
   evolutionLoading,
@@ -83,12 +85,21 @@ async function onGenerateCurrent() {
 // 批量生成
 async function onBatchGenerate() {
   if (!props.projectId) return;
-  try {
-    const res = await handleBatchSnapshots(props.projectId);
-    message.success(`批量完成：成功 ${res.success_count}，失败 ${res.failed_count}`);
-  } catch (e: any) {
-    message.error(e?.toString() || "批量生成失败");
-  }
+  dialog.warning({
+    title: "确认批量生成",
+    content:
+      "将为项目内所有章节逐一调用 AI 生成实体快照，可能耗时较长且消耗较多 Token，确定继续吗？",
+    positiveText: "继续生成",
+    negativeText: "取消",
+    onPositiveClick: async () => {
+      try {
+        const res = await handleBatchSnapshots(props.projectId);
+        message.success(`批量完成：成功 ${res.success_count}，失败 ${res.failed_count}`);
+      } catch (e: any) {
+        message.error(e?.toString() || "批量生成失败");
+      }
+    },
+  });
 }
 
 // 解析状态 JSON 为可读文本
