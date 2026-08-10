@@ -9,7 +9,6 @@ pub mod worldview_repo;
 pub mod chapter_element_repo;
 pub mod ai_provider_repo;
 pub mod ai_api_key_repo;
-pub mod prompt_template_repo;
 pub mod ai_generation_repo;
 pub mod embedding_repo;
 pub mod entity_snapshot_repo;

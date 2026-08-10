@@ -44,31 +44,6 @@ export interface CreateAiApiKey {
   is_default?: boolean;
 }
 
-// ---- Prompt Template ----
-export interface PromptTemplate {
-  id: string;
-  name: string;
-  template_type: string;
-  content: string;
-  variables_json: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreatePromptTemplate {
-  name: string;
-  template_type: string;
-  content: string;
-  variables_json: string;
-}
-
-export interface UpdatePromptTemplate {
-  name?: string;
-  template_type?: string;
-  content?: string;
-  variables_json?: string;
-}
-
 // ---- AI Completion ----
 export interface Message {
   role: string;

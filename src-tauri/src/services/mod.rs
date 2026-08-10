@@ -9,7 +9,6 @@ pub mod worldview_service;
 pub mod chapter_element_service;
 pub mod ai_provider_service;
 pub mod ai_api_key_service;
-pub mod prompt_template_service;
 pub mod ai_generation_service;
 pub mod embedding_service;
 pub mod summary_service;

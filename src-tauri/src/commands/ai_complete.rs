@@ -1,12 +1,11 @@
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tauri::{AppHandle, Emitter, Manager, State};
-use std::collections::HashMap;
 
 use crate::ai::provider::{CompletionRequest, Message};
 use crate::ai::provider_factory;
 use crate::error::AppError;
-use crate::services::{ai_api_key_service, ai_provider_service, prompt_template_service};
+use crate::services::{ai_api_key_service, ai_provider_service};
 
 #[derive(Deserialize)]
 pub struct CompleteRequest {
@@ -197,14 +196,4 @@ pub async fn ai_complete_stream(
     tracing::info!(model = %request.model, "ai_complete_stream command completed");
 
     Ok(())
-}
-
-#[tauri::command]
-pub async fn ai_render_template(
-    pool: State<'_, SqlitePool>,
-    template_id: String,
-    variables: HashMap<String, String>,
-) -> Result<String, AppError> {
-    let template = prompt_template_service::get(pool.inner(), &template_id).await?;
-    Ok(prompt_template_service::render_template(&template.content, &variables))
 }

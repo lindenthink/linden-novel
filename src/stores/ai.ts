@@ -3,7 +3,6 @@ import { ref, computed } from "vue";
 import type {
   AiProvider,
   AiApiKey,
-  PromptTemplate,
   CompleteRequest,
   StreamChunkEvent,
 } from "../types/ai";
@@ -14,7 +13,6 @@ export const useAiStore = defineStore("ai", () => {
   // ---- State ----
   const providers = ref<AiProvider[]>([]);
   const apiKeys = ref<Record<string, AiApiKey[]>>({});
-  const templates = ref<PromptTemplate[]>([]);
   const defaultProvider = ref<AiProvider | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -161,69 +159,6 @@ export const useAiStore = defineStore("ai", () => {
     }
   }
 
-  // Prompt Template 管理
-  async function loadTemplates() {
-    loading.value = true;
-    error.value = null;
-    try {
-      templates.value = await aiApi.listPromptTemplates();
-    } catch (e) {
-      error.value = String(e);
-      throw e;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function loadTemplatesByType(templateType: string) {
-    error.value = null;
-    try {
-      const filtered = await aiApi.listPromptTemplatesByType(templateType);
-      templates.value = filtered;
-    } catch (e) {
-      error.value = String(e);
-      throw e;
-    }
-  }
-
-  async function createTemplate(input: Omit<PromptTemplate, "id" | "created_at" | "updated_at">) {
-    error.value = null;
-    try {
-      const template = await aiApi.createPromptTemplate(input);
-      templates.value.push(template);
-      return template;
-    } catch (e) {
-      error.value = String(e);
-      throw e;
-    }
-  }
-
-  async function updateTemplate(id: string, input: Partial<PromptTemplate>) {
-    error.value = null;
-    try {
-      const template = await aiApi.updatePromptTemplate(id, input);
-      const index = templates.value.findIndex((t) => t.id === id);
-      if (index !== -1) {
-        templates.value[index] = template;
-      }
-      return template;
-    } catch (e) {
-      error.value = String(e);
-      throw e;
-    }
-  }
-
-  async function deleteTemplate(id: string) {
-    error.value = null;
-    try {
-      await aiApi.deletePromptTemplate(id);
-      templates.value = templates.value.filter((t) => t.id !== id);
-    } catch (e) {
-      error.value = String(e);
-      throw e;
-    }
-  }
-
   // AI 补全
   async function complete(request: CompleteRequest) {
     error.value = null;
@@ -273,22 +208,10 @@ export const useAiStore = defineStore("ai", () => {
     }
   }
 
-  // 渲染模板
-  async function renderTemplate(templateId: string, variables: Record<string, string>) {
-    error.value = null;
-    try {
-      return await aiApi.aiRenderTemplate(templateId, variables);
-    } catch (e) {
-      error.value = String(e);
-      throw e;
-    }
-  }
-
   return {
     // State
     providers,
     apiKeys,
-    templates,
     defaultProvider,
     loading,
     error,
@@ -311,13 +234,7 @@ export const useAiStore = defineStore("ai", () => {
     createApiKey,
     deleteApiKey,
     setDefaultApiKey,
-    loadTemplates,
-    loadTemplatesByType,
-    createTemplate,
-    updateTemplate,
-    deleteTemplate,
     complete,
     completeStream,
-    renderTemplate,
   };
 });

@@ -9,7 +9,6 @@ pub mod worldview;
 pub mod chapter_element;
 pub mod ai_provider;
 pub mod ai_api_key;
-pub mod prompt_template;
 pub mod ai_generation;
 pub mod embedding;
 pub mod entity_snapshot;

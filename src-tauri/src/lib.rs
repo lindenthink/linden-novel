@@ -117,17 +117,9 @@ pub fn run() {
             commands::ai_api_key::create_ai_api_key,
             commands::ai_api_key::delete_ai_api_key,
             commands::ai_api_key::set_default_ai_api_key,
-            // prompt_template
-            commands::prompt_template::list_prompt_templates,
-            commands::prompt_template::get_prompt_template,
-            commands::prompt_template::list_prompt_templates_by_type,
-            commands::prompt_template::create_prompt_template,
-            commands::prompt_template::update_prompt_template,
-            commands::prompt_template::delete_prompt_template,
             // ai_complete
             commands::ai_complete::ai_complete,
             commands::ai_complete::ai_complete_stream,
-            commands::ai_complete::ai_render_template,
             // ai_generation
             commands::ai_generation::ai_generate,
             commands::ai_generation::list_ai_generation_history,

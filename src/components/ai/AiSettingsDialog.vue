@@ -18,7 +18,7 @@ import {
 } from "naive-ui";
 import type { DataTableColumns } from "naive-ui";
 import { useAiStore } from "../../stores/ai";
-import type { AiProvider, AiApiKey, PromptTemplate } from "../../types/ai";
+import type { AiProvider, AiApiKey } from "../../types/ai";
 
 defineProps<{
   show: boolean;
@@ -31,7 +31,7 @@ const emit = defineEmits<{
 const aiStore = useAiStore();
 const message = useMessage();
 
-const activeTab = ref<"provider" | "apikey" | "template">("provider");
+const activeTab = ref<"provider" | "apikey">("provider");
 
 const providerTypeOptions = [
   { label: "OpenAI", value: "openai" },
@@ -334,127 +334,6 @@ const apikeyColumns: DataTableColumns<AiApiKey> = [
   },
 ];
 
-// ---- Prompt Template 管理 ----
-const showTemplateForm = ref(false);
-const editingTemplate = ref<PromptTemplate | null>(null);
-const templateForm = ref({
-  name: "",
-  template_type: "completion",
-  content: "",
-  variables_json: "[]",
-});
-
-function resetTemplateForm() {
-  templateForm.value = {
-    name: "",
-    template_type: "completion",
-    content: "",
-    variables_json: "[]",
-  };
-  editingTemplate.value = null;
-}
-
-function openTemplateForm() {
-  resetTemplateForm();
-  showTemplateForm.value = true;
-}
-
-function editTemplate(template: PromptTemplate) {
-  editingTemplate.value = template;
-  templateForm.value = {
-    name: template.name,
-    template_type: template.template_type,
-    content: template.content,
-    variables_json: template.variables_json,
-  };
-  showTemplateForm.value = true;
-}
-
-async function saveTemplate() {
-  try {
-    if (editingTemplate.value) {
-      await aiStore.updateTemplate(editingTemplate.value.id, templateForm.value);
-      message.success("模板更新成功");
-    } else {
-      await aiStore.createTemplate(templateForm.value);
-      message.success("模板创建成功");
-    }
-    showTemplateForm.value = false;
-    resetTemplateForm();
-  } catch (e: any) {
-    message.error(e?.message || "保存失败");
-  }
-}
-
-async function deleteTemplate(id: string) {
-  try {
-    await aiStore.deleteTemplate(id);
-    message.success("模板已删除");
-  } catch (e: any) {
-    message.error(e?.message || "删除失败");
-  }
-}
-
-const templateColumns: DataTableColumns<PromptTemplate> = [
-  {
-    title: "名称",
-    key: "name",
-    width: 200,
-  },
-  {
-    title: "类型",
-    key: "template_type",
-    width: 120,
-  },
-  {
-    title: "内容预览",
-    key: "content",
-    ellipsis: {
-      tooltip: true,
-    },
-    render(row) {
-      return row.content.substring(0, 50) + (row.content.length > 50 ? "..." : "");
-    },
-  },
-  {
-    title: "操作",
-    key: "actions",
-    width: 150,
-    render(row) {
-      return [
-        h(
-          NButton,
-          {
-            size: "small",
-            quaternary: true,
-            onClick: () => editTemplate(row),
-          },
-          { default: () => "编辑" }
-        ),
-        h(
-          NPopconfirm,
-          {
-            onPositiveClick: () => deleteTemplate(row.id),
-          },
-          {
-            trigger: () =>
-              h(
-                NButton,
-                {
-                  size: "small",
-                  quaternary: true,
-                  type: "error",
-                },
-                { default: () => "删除" }
-              ),
-            default: () => "确定删除吗？",
-          }
-        ),
-      ];
-    },
-  },
-];
-
 // 监听 tab 切换，加载对应数据
 function handleTabChange(key: string) {
   if (key === "apikey" && selectedProviderId.value) {
@@ -464,7 +343,6 @@ function handleTabChange(key: string) {
 
 onMounted(async () => {
   await aiStore.loadProviders();
-  await aiStore.loadTemplates();
   if (aiStore.providers.length > 0) {
     selectedProviderId.value = aiStore.providers[0].id;
     apikeyForm.value.provider_id = selectedProviderId.value;
@@ -570,44 +448,6 @@ onMounted(async () => {
               </NFormItem>
               <NFormItem label="设为默认">
                 <NSwitch v-model:value="apikeyForm.is_default" />
-              </NFormItem>
-            </NForm>
-          </NModal>
-        </NSpace>
-      </NTabPane>
-
-      <!-- Prompt Template 管理 -->
-      <NTabPane name="template" tab="Prompt 模板">
-        <NSpace vertical>
-          <NButton type="primary" @click="openTemplateForm">
-            <template #icon>
-              <span class="i-carbon-add" />
-            </template>
-            添加模板
-          </NButton>
-
-          <NDataTable
-            :columns="templateColumns"
-            :data="aiStore.templates"
-            :bordered="false"
-            :single-line="false"
-            size="small"
-          />
-
-          <!-- Template 表单 -->
-          <NModal v-model:show="showTemplateForm" preset="dialog" title="Prompt 模板" positive-text="保存" negative-text="取消" @positive-click="saveTemplate" @negative-click="resetTemplateForm" style="width: 700px">
-            <NForm>
-              <NFormItem label="名称">
-                <NInput v-model:value="templateForm.name" placeholder="例如：续写助手" />
-              </NFormItem>
-              <NFormItem label="类型">
-                <NInput v-model:value="templateForm.template_type" placeholder="completion / continuation / summary" />
-              </NFormItem>
-              <NFormItem label="模板内容">
-                <NInput v-model:value="templateForm.content" type="textarea" :rows="8" placeholder="使用 {{variable}} 格式的变量" />
-              </NFormItem>
-              <NFormItem label="变量列表 (JSON)">
-                <NInput v-model:value="templateForm.variables_json" type="textarea" :rows="2" placeholder='["context", "style"]' />
               </NFormItem>
             </NForm>
           </NModal>
