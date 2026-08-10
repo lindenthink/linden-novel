@@ -12,6 +12,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import { useChapterStore } from "../../stores/chapter";
 import { useMessage } from "naive-ui";
 import { useEditorUI } from "../../composables/useEditorUI";
+import { listChapterElements } from "../../api/element";
 import BlockMenu from "./BlockMenu.vue";
 import ContextMenu from "./ContextMenu.vue";
 import ChapterElementBar from "./ChapterElementBar.vue";
@@ -50,7 +51,8 @@ const editor = useEditor({
       heading: { levels: [1, 2, 3] },
     }),
     Placeholder.configure({
-      placeholder: "输入 / 打开命令菜单，或开始写作...",
+      placeholder:
+        "输入 / 打开命令菜单，或开始写作...\n\n快捷键：Ctrl+B 加粗 · Ctrl+I 斜体 · Ctrl+U 下划线 · Ctrl+Shift+8 无序列表 · Ctrl+Shift+7 有序列表 · Ctrl+Shift+- 分场线 · Ctrl+Z 撤销 · Ctrl+Shift+Z 重做",
     }),
     Underline,
     Highlight.configure({ multicolor: true }),
@@ -207,13 +209,25 @@ function handleAIClose() {
 }
 
 // AI 生成功能
-function openAIGeneration() {
+async function openAIGeneration() {
   if (!editor.value) return;
   
   const activeChapterId = chapterStore.activeChapterId;
   if (!activeChapterId) {
     message.warning("请先选择一个章节");
     return;
+  }
+  
+  // 检查章节是否关联了角色，未关联则仅提示不打开对话框
+  try {
+    const elements = await listChapterElements(activeChapterId);
+    const hasCharacter = elements.some(el => el.element_type === 'character');
+    if (!hasCharacter) {
+      message.warning("当前章节未关联角色，请先在侧边栏关联关键角色、故事线等元素后再使用 AI 生成。");
+      return;
+    }
+  } catch (e) {
+    console.error("加载章节元素失败:", e);
   }
   
   showAIGenerationDialog.value = true;
@@ -504,6 +518,9 @@ onUnmounted(() => {
     color: #9ca3af;
     pointer-events: none;
     height: 0;
+    white-space: pre-wrap;
+    font-size: 13px;
+    line-height: 1.8;
   }
 }
 </style>

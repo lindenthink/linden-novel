@@ -15,6 +15,7 @@ import {
 import { useEntitySnapshot } from "../../composables/useEntitySnapshot";
 import type { SnapshotWithChapter } from "../../api/entitySnapshot";
 import { listChapterSnapshots } from "../../api/entitySnapshot";
+import { listChapterElements } from "../../api/element";
 import { useChapterStore } from "../../stores/chapter";
 
 const props = defineProps<{
@@ -128,6 +129,26 @@ async function onGenerateCurrent() {
   const chapterId = chapterStore.activeChapterId;
   if (!chapterId) {
     message.warning("请先选择章节");
+    return;
+  }
+
+  // 检查章节内容是否为空
+  const contentText = chapterStore.activeContent?.content_text?.trim();
+  if (!contentText) {
+    message.warning("当前章节内容为空，请先编写章节正文后再生成快照。");
+    return;
+  }
+
+  // 检查章节是否关联了元素
+  try {
+    const elements = await listChapterElements(chapterId);
+    if (elements.length === 0) {
+      message.warning("当前章节未关联任何元素（角色、故事线、世界观），请先在侧边栏关联元素后再生成快照。");
+      return;
+    }
+  } catch (e) {
+    console.error("加载章节元素失败:", e);
+    message.error("无法检查章节关联元素，请重试。");
     return;
   }
 

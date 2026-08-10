@@ -8,6 +8,7 @@ import { useChapterStore } from "../stores/chapter";
 import { useLongContext } from "../composables/useLongContext";
 import { useEditorUI } from "../composables/useEditorUI";
 import { exportProject } from "../api/io";
+import { listChapterElements } from "../api/element";
 import ThreeColumnLayout from "../components/layout/ThreeColumnLayout.vue";
 import ChapterTree from "../components/layout/ChapterTree.vue";
 import RightSidebar from "../components/layout/RightSidebar.vue";
@@ -90,10 +91,21 @@ async function handleExport(key: string) {
 }
 
 // ---- AI 生成 ----
-function openAIGeneration() {
+async function openAIGeneration() {
   if (!chapterStore.activeChapterId) {
     message.warning("请先选择一个章节");
     return;
+  }
+  // 检查章节是否关联了角色，未关联则仅提示不打开对话框
+  try {
+    const elements = await listChapterElements(chapterStore.activeChapterId);
+    const hasCharacter = elements.some(el => el.element_type === 'character');
+    if (!hasCharacter) {
+      message.warning("当前章节未关联角色，请先在侧边栏关联关键角色、故事线等元素后再使用 AI 生成。");
+      return;
+    }
+  } catch (e) {
+    console.error("加载章节元素失败:", e);
   }
   showAIGenerationDialog.value = true;
 }
@@ -103,6 +115,13 @@ async function generateSummaryForCurrent() {
   const chapterId = chapterStore.activeChapterId;
   if (!chapterId) {
     message.warning("请先选择一个章节");
+    return;
+  }
+
+  // 检查章节内容是否为空
+  const contentText = chapterStore.activeContent?.content_text?.trim();
+  if (!contentText) {
+    message.warning("当前章节内容为空，请先编写章节正文后再生成摘要。");
     return;
   }
 
