@@ -40,6 +40,7 @@ export default defineConfig({
     "i-carbon-document",
     "i-carbon-horizontal-line-solid",
     "i-carbon-ai",
+    "i-carbon-ai-generate",
     // 右键菜单内联
     "i-carbon-text-bold",
     "i-carbon-text-italic",

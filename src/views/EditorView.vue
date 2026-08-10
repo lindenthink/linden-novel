@@ -233,7 +233,7 @@ watch(() => chapterStore.activeChapterId, (chId) => {
       <NSpace size="small" align="center">
         <NButton quaternary size="small" @click="openAIGeneration">
           <template #icon>
-            <span class="i-carbon-watson-machine-learning" />
+            <span class="i-carbon-ai-generate" />
           </template>
           AI 生成
         </NButton>

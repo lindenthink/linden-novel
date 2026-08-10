@@ -28,7 +28,7 @@ const form = ref<GenerateRequest>({
   mode: 'continuation',
   user_instruction: '',
   parameters: {
-    max_tokens: 1000,
+    max_tokens: 2000,
     temperature: 0.7,
   },
 });
@@ -168,7 +168,8 @@ function formatTime(time: string): string {
             <NInputNumber
               v-model:value="form.parameters!.max_tokens"
               :min="100"
-              :max="4000"
+              :max="10000"
+              :step="100"
               style="width: 120px;"
             />
           </div>
@@ -413,5 +414,34 @@ function formatTime(time: string): string {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
+}
+</style>
+
+<style>
+/* 黑暗模式适配（非 scoped 以匹配全局 .dark 类） */
+.dark .ai-generation-dialog .parameter-label {
+  color: #9ca3af;
+}
+
+.dark .ai-generation-dialog .current-result {
+  border-color: #374151;
+  background: #1f2937;
+}
+
+.dark .ai-generation-dialog .empty-history {
+  color: #6b7280;
+}
+
+.dark .ai-generation-dialog .history-item {
+  border-color: #374151;
+  background: #1f2937;
+}
+
+.dark .ai-generation-dialog .history-time {
+  color: #6b7280;
+}
+
+.dark .ai-generation-dialog .history-content {
+  color: #9ca3af;
 }
 </style>
