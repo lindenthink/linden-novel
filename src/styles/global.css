@@ -1,0 +1,49 @@
+/* Global styles for linden-novel */
+
+/* --- Scrollbar --- */
+/* WebKit browsers (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #9ca3af;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: #6b7280;
+}
+
+/* Dark mode scrollbar */
+html.dark ::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: #6b7280;
+}
+
+html.dark ::-webkit-scrollbar-thumb:active {
+  background-color: #9ca3af;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+html.dark * {
+  scrollbar-color: #4b5563 transparent;
+}
