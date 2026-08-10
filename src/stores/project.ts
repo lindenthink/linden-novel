@@ -26,8 +26,8 @@ export const useProjectStore = defineStore("project", () => {
     volumes.value = await api.listVolumes(id);
   }
 
-  async function createProject(title: string) {
-    const p = await api.createProject({ title });
+  async function createProject(input: Parameters<typeof api.createProject>[0]) {
+    const p = await api.createProject(input);
     projects.value.unshift(p);
     return p;
   }

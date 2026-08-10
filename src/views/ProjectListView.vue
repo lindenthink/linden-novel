@@ -68,7 +68,12 @@ async function handleCreate() {
   }
   creating.value = true;
   try {
-    const p = await projectStore.createProject(createForm.value.title.trim());
+    const p = await projectStore.createProject({
+      title: createForm.value.title.trim(),
+      genre: createForm.value.genre,
+      summary: createForm.value.summary,
+      target_words: createForm.value.target_words,
+    });
     message.success("项目创建成功");
     showCreate.value = false;
     createForm.value = { title: "", genre: null, summary: null, target_words: null };
