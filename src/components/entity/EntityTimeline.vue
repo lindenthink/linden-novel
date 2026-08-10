@@ -8,10 +8,12 @@ import {
   NButton,
   NButtonGroup,
   NSpin,
+  NSwitch,
   useMessage,
   useDialog,
 } from "naive-ui";
 import { useEntitySnapshot } from "../../composables/useEntitySnapshot";
+import type { SnapshotWithChapter } from "../../api/entitySnapshot";
 import { useChapterStore } from "../../stores/chapter";
 
 const props = defineProps<{
@@ -66,6 +68,59 @@ async function selectEntity(entityId: string) {
   selectedEntityId.value = entityId;
   await fetchEvolution(selectedEntityType.value, entityId);
 }
+
+// 仅看变化：合并连续无变化快照，避免章节过多时列表过长
+const onlyChanges = ref(false);
+
+type DisplayItem =
+  | { type: "snapshot"; snap: SnapshotWithChapter; idx: number; isLast: boolean }
+  | { type: "gap"; count: number; startTitle: string; endTitle: string };
+
+const displayItems = computed<DisplayItem[]>(() => {
+  const snaps = currentEvolution.value?.snapshots ?? [];
+  if (!onlyChanges.value) {
+    return snaps.map((snap, idx) => ({
+      type: "snapshot" as const,
+      snap,
+      idx,
+      isLast: idx === snaps.length - 1,
+    }));
+  }
+  // 仅看变化模式：合并连续无 changes 的快照为单个 gap 项
+  const items: DisplayItem[] = [];
+  let gapStart: number | null = null;
+  snaps.forEach((snap, idx) => {
+    const hasChange = !!snap.changes && snap.changes.trim().length > 0;
+    if (hasChange) {
+      if (gapStart !== null) {
+        items.push({
+          type: "gap",
+          count: idx - gapStart,
+          startTitle: snaps[gapStart].chapter_title,
+          endTitle: snaps[idx - 1].chapter_title,
+        });
+        gapStart = null;
+      }
+      items.push({
+        type: "snapshot",
+        snap,
+        idx,
+        isLast: idx === snaps.length - 1,
+      });
+    } else if (gapStart === null) {
+      gapStart = idx;
+    }
+  });
+  if (gapStart !== null) {
+    items.push({
+      type: "gap",
+      count: snaps.length - gapStart,
+      startTitle: snaps[gapStart].chapter_title,
+      endTitle: snaps[snaps.length - 1].chapter_title,
+    });
+  }
+  return items;
+});
 
 // 生成当前章节快照
 async function onGenerateCurrent() {
@@ -333,12 +388,18 @@ watch(() => chapterStore.activeChapterId, () => {
               size="small"
             />
             <template v-else>
-              <!-- 实体名称 -->
-              <div class="mb-3">
-                <h3 class="text-base font-semibold">{{ currentEvolution.name }}</h3>
-                <span class="text-xs text-gray-500">
-                  共 {{ currentEvolution.snapshots.length }} 个快照
-                </span>
+              <!-- 实体名称 + 仅看变化开关 -->
+              <div class="mb-3 flex items-center justify-between gap-2">
+                <div>
+                  <h3 class="text-base font-semibold">{{ currentEvolution.name }}</h3>
+                  <span class="text-xs text-gray-500">
+                    共 {{ currentEvolution.snapshots.length }} 个快照
+                  </span>
+                </div>
+                <div class="flex items-center gap-1.5 text-xs text-gray-500">
+                  <span>仅看变化</span>
+                  <NSwitch v-model:value="onlyChanges" size="small" />
+                </div>
               </div>
 
               <!-- 时间线 -->
@@ -346,67 +407,81 @@ watch(() => chapterStore.activeChapterId, () => {
                 <!-- 时间线竖线 -->
                 <div class="absolute left-2 top-2 bottom-2 w-px bg-gray-200 dark:bg-gray-700" />
 
-                <div
-                  v-for="(snap, idx) in currentEvolution.snapshots"
-                  :key="snap.id"
-                  class="relative pl-6 pb-4"
-                >
-                  <!-- 时间线节点圆点 -->
+                <template v-for="item in displayItems" :key="item.type === 'snapshot' ? item.snap.id : `gap-${item.startTitle}-${item.endTitle}`">
+                  <!-- 快照节点 -->
                   <div
-                    :class="[
-                      'absolute left-0 w-4 h-4 rounded-full border-2 flex items-center justify-center',
-                      idx === currentEvolution.snapshots.length - 1
-                        ? 'bg-green-500 border-green-600'
-                        : 'bg-gray-200 dark:bg-gray-800 border-gray-300 dark:border-gray-600',
-                    ]"
+                    v-if="item.type === 'snapshot'"
+                    class="relative pl-6 pb-4"
                   >
-                    <div v-if="idx === currentEvolution.snapshots.length - 1" class="w-1.5 h-1.5 bg-white rounded-full" />
-                  </div>
-
-                  <!-- 章节标题 -->
-                  <div class="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {{ snap.chapter_title }}
-                  </div>
-
-                  <!-- 状态卡片 -->
-                  <div class="bg-gray-50 dark:bg-gray-800/50 rounded p-2">
-                    <p class="text-xs text-gray-600 dark:text-gray-300 mb-1">
-                      {{ snap.summary }}
-                    </p>
-
-                    <!-- 状态字段 -->
+                    <!-- 时间线节点圆点 -->
                     <div
-                      v-if="formatStateJson(snap.state_json).length > 0"
-                      class="flex flex-wrap gap-1"
+                      :class="[
+                        'absolute left-0 w-4 h-4 rounded-full border-2 flex items-center justify-center',
+                        item.isLast
+                          ? 'bg-green-500 border-green-600'
+                          : 'bg-gray-200 dark:bg-gray-800 border-gray-300 dark:border-gray-600',
+                      ]"
                     >
-                      <template
-                        v-for="field in formatStateJson(snap.state_json)"
-                        :key="field.key"
+                      <div v-if="item.isLast" class="w-1.5 h-1.5 bg-white rounded-full" />
+                    </div>
+
+                    <!-- 章节标题 -->
+                    <div class="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {{ item.snap.chapter_title }}
+                    </div>
+
+                    <!-- 状态卡片 -->
+                    <div class="bg-gray-50 dark:bg-gray-800/50 rounded p-2">
+                      <p class="text-xs text-gray-600 dark:text-gray-300 mb-1">
+                        {{ item.snap.summary }}
+                      </p>
+
+                      <!-- 状态字段 -->
+                      <div
+                        v-if="formatStateJson(item.snap.state_json).length > 0"
+                        class="flex flex-wrap gap-1"
                       >
-                        <NTag
-                          v-if="field.key === '状态' || field.key === '进展'"
-                          :type="statusTagType(field.value)"
-                          size="tiny"
-                          round
+                        <template
+                          v-for="field in formatStateJson(item.snap.state_json)"
+                          :key="field.key"
                         >
-                          {{ field.value }}
-                        </NTag>
-                        <span v-else class="text-xs text-gray-500">
-                          {{ field.key }}: {{ field.value }}
-                        </span>
-                      </template>
-                    </div>
+                          <NTag
+                            v-if="field.key === '状态' || field.key === '进展'"
+                            :type="statusTagType(field.value)"
+                            size="tiny"
+                            round
+                          >
+                            {{ field.value }}
+                          </NTag>
+                          <span v-else class="text-xs text-gray-500">
+                            {{ field.key }}: {{ field.value }}
+                          </span>
+                        </template>
+                      </div>
 
-                    <!-- 变化 -->
-                    <div
-                      v-if="snap.changes"
-                      class="mt-1.5 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1"
-                    >
-                      <span class="i-carbon-update text-xs" />
-                      {{ snap.changes }}
+                      <!-- 变化 -->
+                      <div
+                        v-if="item.snap.changes"
+                        class="mt-1.5 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1"
+                      >
+                        <span class="i-carbon-update text-xs" />
+                        {{ item.snap.changes }}
+                      </div>
                     </div>
                   </div>
-                </div>
+
+                  <!-- 合并的无变化区间 -->
+                  <div
+                    v-else
+                    class="relative pl-6 pb-4"
+                  >
+                    <!-- 虚线小节点 -->
+                    <div class="absolute left-0.5 top-1 w-3 h-3 rounded-full border border-dashed border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800" />
+                    <div class="text-xs text-gray-400 dark:text-gray-500 italic py-1">
+                      {{ item.count }} 章无变化（{{ item.startTitle }} → {{ item.endTitle }}）
+                    </div>
+                  </div>
+                </template>
               </div>
             </template>
           </div>
