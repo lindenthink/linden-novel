@@ -55,6 +55,10 @@ export default defineConfig({
     "i-carbon-search",
     // 实体演变
     "i-carbon-update",
+    // 浮动设置按钮
+    "i-carbon-settings",
+    "i-carbon-sun",
+    "i-carbon-moon",
   ],
   theme: {
     colors: {

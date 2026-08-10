@@ -19,18 +19,12 @@ import {
 } from "naive-ui";
 import { useProjectStore } from "../stores/project";
 import { importProject } from "../api/io";
-import { useTheme } from "../composables/useTheme";
-import AiSettingsDialog from "../components/ai/AiSettingsDialog.vue";
 import ProjectCard from "../components/common/ProjectCard.vue";
 
 const router = useRouter();
 const projectStore = useProjectStore();
 const message = useMessage();
 const dialog = useDialog();
-const { toggle, isDark } = useTheme();
-
-// ---- AI 设置弹窗 ----
-const showAiSettings = ref(false);
 
 // ---- 新建项目弹窗 ----
 const showCreate = ref(false);
@@ -198,24 +192,6 @@ onMounted(() => {
             </template>
             新建项目
           </NButton>
-          <!-- 分隔线 -->
-          <div class="w-px h-6 bg-gray-200 dark:bg-gray-600" />
-          <!-- 应用设置：工具组 -->
-          <div class="flex items-center gap-0.5 p-0.5 rounded-lg bg-gray-100 dark:bg-gray-700/40">
-            <NButton quaternary size="small" @click="showAiSettings = true">
-              <template #icon>
-                <span class="i-carbon-ai" />
-              </template>
-              AI 设置
-            </NButton>
-            <NButton quaternary size="small" @click="toggle">
-              <template #icon>
-                <span v-if="isDark" class="i-carbon-moon" />
-                <span v-else class="i-carbon-sun" />
-              </template>
-              {{ isDark ? "暗色" : "亮色" }}
-            </NButton>
-          </div>
         </div>
       </div>
     </header>
@@ -358,8 +334,5 @@ onMounted(() => {
         </NFormItem>
       </NForm>
     </NModal>
-
-    <!-- AI 设置对话框 -->
-    <AiSettingsDialog v-model:show="showAiSettings" />
   </div>
 </template>
