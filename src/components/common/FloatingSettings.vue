@@ -26,13 +26,12 @@ function handleThemeToggle() {
     :bottom="40"
     :right="40"
     shape="circle"
-    type="primary"
   >
-    <span class="i-carbon-settings text-xl " />
+    <span class="i-carbon-settings text-xl" />
     <template #menu>
       <NTooltip trigger="hover" placement="left">
         <template #trigger>
-          <NFloatButton shape="circle" @click="handleAiSettings" type="primary">
+          <NFloatButton shape="circle" @click="handleAiSettings" >
             <span class="i-carbon-ai text-lg" />
           </NFloatButton>
         </template>
@@ -40,7 +39,7 @@ function handleThemeToggle() {
       </NTooltip>
       <NTooltip trigger="hover" placement="left">
         <template #trigger>
-          <NFloatButton shape="circle" @click="handleThemeToggle" type="primary">
+          <NFloatButton shape="circle" @click="handleThemeToggle">
             <span
               :class="[isDark ? 'i-carbon-sun' : 'i-carbon-moon']"
             />

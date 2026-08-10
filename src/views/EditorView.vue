@@ -2,7 +2,7 @@
 import { onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { save } from "@tauri-apps/plugin-dialog";
-import { NButton, NSpace, NDropdown, useMessage } from "naive-ui";
+import { NButton, NSpace, NDropdown, NEmpty, useMessage } from "naive-ui";
 import { useProjectStore } from "../stores/project";
 import { useChapterStore } from "../stores/chapter";
 import { useLongContext } from "../composables/useLongContext";
@@ -38,6 +38,11 @@ async function loadProject() {
     // 加载所有卷的章节
     for (const vol of projectStore.volumes) {
       await chapterStore.fetchChapters(vol.id);
+    }
+    // 恢复上次编辑的章节
+    const lastChapterId = localStorage.getItem(`linden:lastChapter:${projectId}`);
+    if (lastChapterId && chapterStore.chapters.some((c) => c.id === lastChapterId)) {
+      await chapterStore.setActiveChapter(lastChapterId);
     }
   } catch (e: any) {
     message.error(e?.message || "加载项目失败");
@@ -166,6 +171,13 @@ watch(() => route.params.id, (newId) => {
     loadProject();
   }
 });
+
+// 记忆上次编辑的章节
+watch(() => chapterStore.activeChapterId, (chId) => {
+  if (chId) {
+    localStorage.setItem(`linden:lastChapter:${projectId}`, chId);
+  }
+});
 </script>
 
 <template>
@@ -228,8 +240,33 @@ watch(() => route.params.id, (newId) => {
           <ChapterTree />
         </template>
         <template #center>
+          <!-- 空项目：引导新建卷和章节 -->
+          <div
+            v-if="projectStore.volumes.length === 0"
+            class="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900"
+          >
+            <NEmpty size="large" description="还没有卷和章节" class="py-10">
+              <template #extra>
+                <NSpace vertical align="center" :size="12">
+                  <span class="text-sm text-gray-500 dark:text-gray-400">
+                    在左侧章节目录点击「+ 卷」创建第一卷
+                  </span>
+                  <span class="text-xs text-gray-400 dark:text-gray-500">
+                    创建卷后，右键点击卷可新建章节
+                  </span>
+                </NSpace>
+              </template>
+            </NEmpty>
+          </div>
+          <!-- 有章节但未选中：提示选择 -->
+          <div
+            v-else-if="!chapterStore.activeChapterId"
+            class="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900"
+          >
+            <NEmpty size="large" description="请从左侧选择一个章节开始写作" class="py-10" />
+          </div>
           <!-- 编辑区 — TipTap 编辑器 -->
-          <LindenEditor />
+          <LindenEditor v-else />
         </template>
         <template #right>
           <RightSidebar />
