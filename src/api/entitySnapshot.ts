@@ -43,6 +43,16 @@ export interface BatchSnapshotsResponse {
   failed_count: number;
 }
 
+export interface ProjectEntity {
+  entity_type: string;
+  entity_id: string;
+  name: string;
+}
+
+export interface ListProjectEntitiesResponse {
+  entities: ProjectEntity[];
+}
+
 /** 为指定章节生成实体快照 */
 export async function generateChapterSnapshots(
   chapterId: string
@@ -85,6 +95,15 @@ export async function deleteProjectSnapshots(
   projectId: string
 ): Promise<void> {
   return invoke("delete_project_snapshots", {
+    request: { project_id: projectId },
+  });
+}
+
+/** 列出项目内所有有快照的实体（去重） */
+export async function listProjectEntities(
+  projectId: string
+): Promise<ListProjectEntitiesResponse> {
+  return invoke<ListProjectEntitiesResponse>("list_project_entities", {
     request: { project_id: projectId },
   });
 }

@@ -2,10 +2,12 @@ import { ref } from "vue";
 import {
   getEntityEvolution,
   listChapterSnapshots,
+  listProjectEntities,
   generateChapterSnapshots,
   batchGenerateSnapshots,
   type EvolutionResponse,
   type SnapshotItem,
+  type ProjectEntity,
 } from "../api/entitySnapshot";
 
 const evolutionLoading = ref(false);
@@ -13,6 +15,8 @@ const currentEvolution = ref<EvolutionResponse | null>(null);
 
 const chapterLoading = ref(false);
 const chapterSnapshots = ref<SnapshotItem[]>([]);
+
+const projectEntities = ref<ProjectEntity[]>([]);
 
 const generating = ref(false);
 const generateResult = ref<string | null>(null);
@@ -43,8 +47,20 @@ export function useEntitySnapshot() {
     return chapterSnapshots.value;
   }
 
+  /** 加载项目内有快照的实体列表（去重） */
+  async function fetchProjectEntities(projectId: string) {
+    try {
+      const res = await listProjectEntities(projectId);
+      projectEntities.value = res.entities;
+    } catch (e) {
+      console.error("Failed to fetch project entities:", e);
+      projectEntities.value = [];
+    }
+    return projectEntities.value;
+  }
+
   /** 生成章节快照 */
-  async function handleGenerateSnapshots(chapterId: string) {
+  async function handleGenerateSnapshots(chapterId: string, projectId?: string) {
     generating.value = true;
     generateResult.value = null;
     try {
@@ -52,6 +68,10 @@ export function useEntitySnapshot() {
       generateResult.value = `成功 ${res.success_count} / 失败 ${res.failed_count}`;
       // 刷新章节快照
       await fetchChapterSnapshots(chapterId);
+      // 刷新项目实体列表
+      if (projectId) {
+        await fetchProjectEntities(projectId);
+      }
       return res;
     } finally {
       generating.value = false;
@@ -65,6 +85,8 @@ export function useEntitySnapshot() {
     try {
       const res = await batchGenerateSnapshots(projectId);
       generateResult.value = `成功 ${res.success_count} / 失败 ${res.failed_count}`;
+      // 刷新项目实体列表
+      await fetchProjectEntities(projectId);
       return res;
     } finally {
       generating.value = false;
@@ -81,11 +103,13 @@ export function useEntitySnapshot() {
     currentEvolution,
     chapterLoading,
     chapterSnapshots,
+    projectEntities,
     generating,
     generateResult,
     // actions
     fetchEvolution,
     fetchChapterSnapshots,
+    fetchProjectEntities,
     handleGenerateSnapshots,
     handleBatchSnapshots,
     resetEvolution,

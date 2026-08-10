@@ -139,6 +139,7 @@ pub fn run() {
             commands::entity_snapshot::get_entity_evolution,
             commands::entity_snapshot::list_chapter_snapshots,
             commands::entity_snapshot::delete_project_snapshots,
+            commands::entity_snapshot::list_project_entities,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -2,7 +2,7 @@ use sqlx::SqlitePool;
 
 use crate::db::pool;
 use crate::models::entity_snapshot::{
-    EntitySnapshot, EntitySnapshotWithChapter, EntityType, EntityEvolution, UpsertEntitySnapshot,
+    EntitySnapshot, EntitySnapshotWithChapter, EntityType, EntityEvolution, ProjectEntity, UpsertEntitySnapshot,
 };
 
 /// 插入或更新快照（UPSERT）
@@ -87,6 +87,37 @@ pub async fn list_by_chapter(
     .bind(chapter_id)
     .fetch_all(pool)
     .await
+}
+
+/// 列出项目内所有有快照的实体（去重），返回 (entity_type, entity_id, name)
+pub async fn list_project_entities(
+    pool: &SqlitePool,
+    project_id: &str,
+) -> Result<Vec<ProjectEntity>, sqlx::Error> {
+    // 角色
+    let mut characters: Vec<ProjectEntity> = sqlx::query_as(
+        "SELECT DISTINCT s.entity_type AS entity_type, s.entity_id AS entity_id, c.name AS name
+         FROM entity_snapshots s
+         JOIN characters c ON c.id = s.entity_id
+         WHERE s.project_id = ? AND s.entity_type = 'character'",
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
+    // 故事线
+    let mut storylines: Vec<ProjectEntity> = sqlx::query_as(
+        "SELECT DISTINCT s.entity_type AS entity_type, s.entity_id AS entity_id, st.name AS name
+         FROM entity_snapshots s
+         JOIN storylines st ON st.id = s.entity_id
+         WHERE s.project_id = ? AND s.entity_type = 'storyline'",
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
+    characters.append(&mut storylines);
+    Ok(characters)
 }
 
 /// 获取实体演变历史（含章节信息）

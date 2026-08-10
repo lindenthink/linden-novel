@@ -9,7 +9,7 @@ import {
 // UnoCSS 配置：原子化排版 + 属性化模式 + 排版（编辑器 prose）+ 图标 + 暗色 class 策略
 export default defineConfig({
   presets: [
-    presetUno(),
+    presetUno({ dark: "class" }),
     presetAttributify(),
     presetTypography(),
     presetIcons({

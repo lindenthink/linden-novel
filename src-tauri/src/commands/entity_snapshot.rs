@@ -3,7 +3,7 @@ use sqlx::SqlitePool;
 use tauri::{AppHandle, Manager, State};
 
 use crate::error::AppError;
-use crate::models::entity_snapshot::EntityType;
+use crate::models::entity_snapshot::{EntityType, ProjectEntity};
 use crate::services::entity_snapshot_service;
 
 // --- 请求/响应 ---
@@ -81,6 +81,16 @@ pub struct SnapshotItem {
 #[derive(Debug, Deserialize)]
 pub struct DeleteSnapshotsRequest {
     pub project_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ListProjectEntitiesRequest {
+    pub project_id: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ListProjectEntitiesResponse {
+    pub entities: Vec<ProjectEntity>,
 }
 
 // --- 命令 ---
@@ -213,4 +223,20 @@ pub async fn delete_project_snapshots(
         .await
         .map_err(AppError::from)?;
     Ok(())
+}
+
+/// 列出项目内所有有快照的实体（去重）
+#[tauri::command]
+pub async fn list_project_entities(
+    pool: State<'_, SqlitePool>,
+    request: ListProjectEntitiesRequest,
+) -> Result<ListProjectEntitiesResponse, AppError> {
+    let entities = crate::db::repo::entity_snapshot_repo::list_project_entities(
+        pool.inner(),
+        &request.project_id,
+    )
+    .await
+    .map_err(AppError::from)?;
+
+    Ok(ListProjectEntitiesResponse { entities })
 }

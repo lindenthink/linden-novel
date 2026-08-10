@@ -9,6 +9,14 @@ pub enum EntityType {
     Storyline,
 }
 
+/// 项目内有快照的实体（去重后）
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+pub struct ProjectEntity {
+    pub entity_type: String,
+    pub entity_id: String,
+    pub name: String,
+}
+
 impl EntityType {
     pub fn as_str(&self) -> &'static str {
         match self {

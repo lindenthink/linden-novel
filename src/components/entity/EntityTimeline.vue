@@ -24,10 +24,12 @@ const {
   currentEvolution,
   chapterLoading,
   chapterSnapshots,
+  projectEntities,
   generating,
   generateResult,
   fetchEvolution,
   fetchChapterSnapshots,
+  fetchProjectEntities,
   handleGenerateSnapshots,
   handleBatchSnapshots,
   resetEvolution,
@@ -38,20 +40,11 @@ const activeTab = ref("chapter");
 const selectedEntityType = ref<"character" | "storyline">("character");
 const selectedEntityId = ref<string | null>(null);
 
-// 解析章节关联的角色和故事线列表
+// 项目级实体列表（所有有快照的实体，不限于当前章节）
 const availableEntities = computed(() => {
-  const snapshots = chapterSnapshots.value;
-  if (selectedEntityType.value === "character") {
-    const seen = new Set<string>();
-    return snapshots
-      .filter((s) => s.entity_type === "character" && !seen.add(s.entity_id))
-      .map((s) => ({ id: s.entity_id, name: extractName(s) }));
-  } else {
-    const seen = new Set<string>();
-    return snapshots
-      .filter((s) => s.entity_type === "storyline" && !seen.add(s.entity_id))
-      .map((s) => ({ id: s.entity_id, name: extractName(s) }));
-  }
+  return projectEntities.value
+    .filter((e) => e.entity_type === selectedEntityType.value)
+    .map((e) => ({ id: e.entity_id, name: e.name }));
 });
 
 function extractName(s: { summary: string }) {
@@ -80,7 +73,7 @@ async function onGenerateCurrent() {
     return;
   }
   try {
-    const res = await handleGenerateSnapshots(chapterId);
+    const res = await handleGenerateSnapshots(chapterId, props.projectId);
     message.success(`快照生成完成：成功 ${res.success_count}，失败 ${res.failed_count}`);
   } catch (e: any) {
     message.error(e?.toString() || "生成失败");
@@ -153,7 +146,7 @@ function statusTagType(status: string): "success" | "warning" | "error" | "info"
   return map[status.toLowerCase()] ?? "default";
 }
 
-// 加载章节快照
+// 加载章节快照和项目实体
 async function loadChapter() {
   const chapterId = chapterStore.activeChapterId;
   if (chapterId) {
@@ -161,7 +154,12 @@ async function loadChapter() {
   }
 }
 
-onMounted(loadChapter);
+onMounted(async () => {
+  await loadChapter();
+  if (props.projectId) {
+    await fetchProjectEntities(props.projectId);
+  }
+});
 
 watch(() => chapterStore.activeChapterId, () => {
   loadChapter();
@@ -294,22 +292,22 @@ watch(() => chapterStore.activeChapterId, () => {
               </NButtonGroup>
             </div>
 
-            <div class="p-1">
+            <div class="p-1 space-y-1">
               <button
                 v-for="entity in availableEntities"
                 :key="entity.id"
                 :class="[
-                  'w-full text-left text-xs px-2 py-1.5 rounded transition mb-0.5',
+                  'w-full text-left text-sm px-2 py-1.5 rounded-md border transition',
                   selectedEntityId === entity.id
-                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300',
+                    ? 'border-green-500 bg-green-50 dark:bg-green-900/40 text-green-800 dark:text-green-100 font-medium'
+                    : 'border-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700',
                 ]"
                 @click="selectEntity(entity.id)"
               >
                 {{ entity.name }}
               </button>
-              <div v-if="availableEntities.length === 0" class="p-3 text-xs text-gray-400 text-center">
-                暂无{{ selectedEntityType === "character" ? "角色" : "故事线" }}
+              <div v-if="availableEntities.length === 0" class="p-3 text-xs text-gray-400 dark:text-gray-500 text-center">
+                暂无{{ selectedEntityType === "character" ? "角色" : "故事线" }}快照，请先生成
               </div>
             </div>
           </div>
@@ -348,7 +346,7 @@ watch(() => chapterStore.activeChapterId, () => {
                       'absolute left-0 w-4 h-4 rounded-full border-2 flex items-center justify-center',
                       idx === currentEvolution.snapshots.length - 1
                         ? 'bg-green-500 border-green-600'
-                        : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600',
+                        : 'bg-gray-200 dark:bg-gray-800 border-gray-300 dark:border-gray-600',
                     ]"
                   >
                     <div v-if="idx === currentEvolution.snapshots.length - 1" class="w-1.5 h-1.5 bg-white rounded-full" />
