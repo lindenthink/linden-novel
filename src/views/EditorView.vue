@@ -105,12 +105,36 @@ async function generateSummaryForCurrent() {
     message.warning("请先选择一个章节");
     return;
   }
-  try {
-    const res = await handleGenerateSummary(chapterId);
-    message.success(`摘要已生成（${res.char_count} 字）`);
-  } catch (e: any) {
-    message.error(e?.toString() || "摘要生成失败");
+
+  // 从章节数据中检查是否已有摘要
+  const currentChapter = chapterStore.chapters.find((c) => c.id === chapterId);
+  const existingSummary = currentChapter?.summary;
+  
+  const doGenerate = async () => {
+    try {
+      const res = await handleGenerateSummary(chapterId);
+      // 更新 store 中的章节 summary
+      if (currentChapter) {
+        chapterStore.updateChapterMeta(chapterId, { summary: res.summary });
+      }
+      message.success(`摘要已生成（${res.char_count} 字）`);
+    } catch (e: any) {
+      message.error(e?.toString() || "摘要生成失败");
+    }
+  };
+
+  if (existingSummary && existingSummary.trim().length > 0) {
+    dialog.warning({
+      title: "确认重新生成",
+      content: "当前章节已有摘要，重新生成将覆盖原有摘要，确定继续吗？",
+      positiveText: "重新生成",
+      negativeText: "取消",
+      onPositiveClick: doGenerate,
+    });
+    return;
   }
+
+  await doGenerate();
 }
 
 async function batchGenerateAllSummaries() {

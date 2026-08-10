@@ -14,6 +14,7 @@ import {
 } from "naive-ui";
 import { useEntitySnapshot } from "../../composables/useEntitySnapshot";
 import type { SnapshotWithChapter } from "../../api/entitySnapshot";
+import { listChapterSnapshots } from "../../api/entitySnapshot";
 import { useChapterStore } from "../../stores/chapter";
 
 const props = defineProps<{
@@ -129,6 +130,32 @@ async function onGenerateCurrent() {
     message.warning("请先选择章节");
     return;
   }
+
+  // 检查是否已有快照
+  try {
+    const res = await listChapterSnapshots(chapterId);
+    if (res.snapshots.length > 0) {
+      dialog.warning({
+        title: "确认重新生成",
+        content: `当前章节已有 ${res.snapshots.length} 个实体快照，重新生成将覆盖原有快照，确定继续吗？`,
+        positiveText: "重新生成",
+        negativeText: "取消",
+        onPositiveClick: async () => {
+          try {
+            const r = await handleGenerateSnapshots(chapterId, props.projectId);
+            message.success(`快照生成完成：成功 ${r.success_count}，失败 ${r.failed_count}`);
+          } catch (e: any) {
+            message.error(e?.toString() || "生成失败");
+          }
+        },
+      });
+      return;
+    }
+  } catch (e) {
+    // 查询失败时不阻塞，直接生成
+    console.warn("Failed to check existing snapshots:", e);
+  }
+
   try {
     const res = await handleGenerateSnapshots(chapterId, props.projectId);
     message.success(`快照生成完成：成功 ${res.success_count}，失败 ${res.failed_count}`);
