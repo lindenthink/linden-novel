@@ -390,7 +390,7 @@ onUnmounted(() => {
   justify-content: center;
   border-radius: 4px;
   color: #9ca3af;
-  cursor: grab;
+  cursor: pointer;
   transition: all 0.12s ease;
   background: transparent;
   opacity: 0.7;
@@ -399,12 +399,8 @@ onUnmounted(() => {
 :deep(.block-handle-drag:hover) {
   background-color: #f3f4f6;
   color: #374151;
-  cursor: grab;
+  cursor: pointer;
   opacity: 1;
-}
-
-:deep(.block-handle-drag:active) {
-  cursor: grabbing;
 }
 
 /* TipTap 编辑器基础样式 */
