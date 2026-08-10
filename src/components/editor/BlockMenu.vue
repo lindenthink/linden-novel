@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
 import type { Editor } from "@tiptap/vue-3";
+import { Selection } from "@tiptap/pm/state";
 
 const props = defineProps<{
   editor: Editor;
@@ -55,61 +56,143 @@ function insertSceneBreak() {
   emit("close");
 }
 
-function duplicateBlock() {
-  const { from } = props.editor.state.selection;
-  const node = props.editor.state.doc.nodeAt(from);
-  if (node) {
-    props.editor.chain()
-      .focus()
-      .insertContentAt(from + node.nodeSize, [node.toJSON()])
-      .run();
+// 获取当前光标所在的可操作块级节点及其父上下文
+// 规则：
+// - 若光标在列表内（<ul>/<ol> 下的 <li>），操作单元为 <li>（其父是列表），在列表内移动
+// - 若光标在块引用/代码块内的段落，操作单元为段落（父是容器节点）
+// - 否则为顶级块（段落/标题等），父是 doc
+function getCurrentBlockContext() {
+  const { $from } = props.editor.state.selection;
+  // depth 0 = doc, 向上找到第一个 isBlock 祖先作为移动单元
+  // 典型: doc(depth=0) -> p(depth=1, inline 文本在 depth=2)
+  // doc -> ul(depth=1) -> li(depth=2) -> p(depth=3, inline depth=4)
+  // 目标 depth: 最靠近文本层且 isBlock=true 的节点
+  for (let d = $from.depth; d >= 1; d--) {
+    const node = $from.node(d);
+    if (!node) continue;
+    const parent = $from.node(d - 1);
+    // 当父节点允许多个 block 子节点（或至少 2 个子节点）时，此层为移动层
+    // 对 list item 特殊处理: 当父是 ul/ol 时，li 就是移动单元
+    if (node.isBlock && parent && parent.childCount >= 1) {
+      return {
+        node,
+        pos: $from.before(d),   // 此节点在文档中的位置
+        parent,
+        parentPos: d - 1 === 0 ? 0 : $from.before(d - 1), // 父节点位置
+        index: $from.index(d - 1), // 在父中的索引
+        depth: d,
+      };
+    }
   }
+  // 兜底：顶级块
+  if ($from.depth >= 1) {
+    return {
+      node: $from.node(1),
+      pos: $from.before(1),
+      parent: $from.node(0),
+      parentPos: 0,
+      index: $from.index(0),
+      depth: 1,
+    };
+  }
+  return null;
+}
+
+function duplicateBlock() {
+  const ctx = getCurrentBlockContext();
+  if (!ctx) {
+    emit("close");
+    return;
+  }
+  const { pos, node } = ctx;
+  const insertPos = pos + node.nodeSize;
+  props.editor
+    .chain()
+    .focus()
+    .insertContentAt(insertPos, [node.toJSON()])
+    .run();
   emit("close");
 }
 
 function deleteBlock() {
-  const { from } = props.editor.state.selection;
-  const node = props.editor.state.doc.nodeAt(from);
-  if (node) {
-    props.editor.chain()
-      .focus()
-      .deleteRange({ from, to: from + node.nodeSize })
-      .run();
+  const ctx = getCurrentBlockContext();
+  if (!ctx) {
+    emit("close");
+    return;
   }
+  const { pos, node } = ctx;
+  props.editor
+    .chain()
+    .focus()
+    .deleteRange({ from: pos, to: pos + node.nodeSize })
+    .run();
   emit("close");
 }
 
-function moveBlockUp() {
-  const { from } = props.editor.state.selection;
-  const node = props.editor.state.doc.nodeAt(from);
-  if (node && from > 0) {
-    const beforePos = from - 1;
-    const beforeNode = props.editor.state.doc.nodeAt(beforePos);
-    if (beforeNode) {
-      props.editor.chain()
-        .focus()
-        .deleteRange({ from: beforePos, to: beforePos + beforeNode.nodeSize })
-        .insertContentAt(from - beforeNode.nodeSize - 1, [beforeNode.toJSON()])
-        .run();
-    }
+// 通用的同层块移动函数
+function swapWithSibling(direction: -1 | 1) {
+  const ctx = getCurrentBlockContext();
+  if (!ctx) return false;
+  const { pos, node, parent, index } = ctx;
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= parent.childCount) return false;
+  const sibling = parent.child(targetIndex);
+
+  let from: number, to: number, newContent: typeof node[];
+  if (direction === -1) {
+    // 上移：[... sibling, node ...] -> [... node, sibling ...]
+    from = pos - sibling.nodeSize;
+    to = pos + node.nodeSize;
+    newContent = [node, sibling];
+  } else {
+    // 下移：[... node, sibling ...] -> [... sibling, node ...]
+    from = pos;
+    to = pos + node.nodeSize + sibling.nodeSize;
+    newContent = [sibling, node];
   }
+
+  const { state } = props.editor;
+  const tr = state.tr.replaceWith(from, to, newContent);
+
+  // 关键：把选区映射后放入"当前块"内，保证后续操作还能定位到同一个逻辑块
+  // 移动后：
+  //   direction=-1 (上移): 当前块占据新内容 [from, from + node.nodeSize)
+  //   direction=1  (下移): 当前块占据新内容 [from + sibling.nodeSize, from + sibling.nodeSize + node.nodeSize)
+  const nodeStartAfter = direction === -1 ? from : from + sibling.nodeSize;
+  try {
+    // 节点内部位置（节点起始 + 1 即进入内容区）
+    const insidePos = Math.min(
+      nodeStartAfter + Math.max(1, Math.min(state.selection.from - pos, node.nodeSize - 2)),
+      nodeStartAfter + node.nodeSize - 1,
+    );
+    if (insidePos >= 0 && insidePos <= tr.doc.content.size) {
+      const $newPos = tr.doc.resolve(insidePos);
+      tr.setSelection(Selection.near($newPos, 1));
+    }
+  } catch {
+    /* 选区设置失败就让 PM 自动映射，通常也能工作 */
+  }
+  tr.scrollIntoView();
+
+  try {
+    const view = props.editor.view;
+    if (view && !(view as any).isDestroyed) {
+      view.dispatch(tr);
+      return true;
+    }
+  } catch {
+    /* Tiptap v3 中 editor.view 可能在卸载时抛异常 */
+  }
+  return false;
+}
+
+function moveBlockUp() {
+  swapWithSibling(-1);
   emit("close");
 }
 
 function moveBlockDown() {
-  const { from } = props.editor.state.selection;
-  const node = props.editor.state.doc.nodeAt(from);
-  if (node) {
-    const afterPos = from + node.nodeSize;
-    const afterNode = props.editor.state.doc.nodeAt(afterPos);
-    if (afterNode) {
-      props.editor.chain()
-        .focus()
-        .deleteRange({ from: afterPos, to: afterPos + afterNode.nodeSize })
-        .insertContentAt(from + node.nodeSize - 1, [afterNode.toJSON()])
-        .run();
-    }
-  }
+  swapWithSibling(1);
   emit("close");
 }
 

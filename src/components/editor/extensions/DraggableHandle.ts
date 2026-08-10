@@ -194,10 +194,13 @@ export const DraggableHandle = Extension.create({
             if (dragBtn?.contains(target)) {
               event.stopPropagation();
               event.preventDefault();
-              editor.commands.focus();
+              const blockPos = editor.view.posAtDOM(hoveredNode, 0);
+              // 关键：把选区设置到对应块内，确保后续 BlockMenu 操作的是正确的块
+              // posAtDOM 返回的是块内容起始位置，直接用于 TextSelection
+              editor.chain().focus().setTextSelection(blockPos).run();
               editor.emit("blockHandleClick" as any, {
                 node: hoveredNode,
-                pos: editor.view.posAtDOM(hoveredNode, 0),
+                pos: blockPos,
               });
             }
           };
