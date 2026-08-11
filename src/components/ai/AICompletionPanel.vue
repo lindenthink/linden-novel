@@ -48,19 +48,18 @@ const modeTitle = computed(() => {
 
 // 构建 AI 请求
 async function requestCompletion() {
+  if (isLoading.value) return;
+  if (!aiStore.defaultProvider) {
+    message.error("未配置 AI Provider，请先在设置中添加");
+    return;
+  }
+
   isLoading.value = true;
   aiStore.streamContent = "";
   aiStore.streamError = null;
 
   try {
-    // 获取默认 provider
     const provider = aiStore.defaultProvider;
-    if (!provider) {
-      message.error("未配置 AI Provider，请先在设置中添加");
-      isLoading.value = false;
-      return;
-    }
-
     const userInstruction = userInput.value.trim();
 
     // 根据模式构建不同的提示词（指令为可选，未填写时使用默认提示）
@@ -204,7 +203,6 @@ watch(() => props.visible, async (newVal) => {
               placeholder="输入 AI 指令（可选），例如：继续写这段对话...&#10;&#10;快捷键：Ctrl+Enter 发送，Esc 关闭"
               :rows="3"
               :disabled="isLoading"
-              @keydown.ctrl.enter="requestCompletion"
             />
             <div class="input-actions">
               <NButton

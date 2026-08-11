@@ -172,6 +172,9 @@ export const useAiStore = defineStore("ai", () => {
 
   // 流式 AI 补全
   async function completeStream(request: CompleteRequest): Promise<string> {
+    if (streaming.value) {
+      throw new Error("已有流式请求正在进行中");
+    }
     error.value = null;
     streamError.value = null;
     streamContent.value = "";
