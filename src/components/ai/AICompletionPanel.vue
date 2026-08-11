@@ -85,13 +85,12 @@ async function requestCompletion() {
       },
     ];
 
-    // 调用流式 API
+    // 调用流式 API（不设置 max_tokens，避免推理模型在 thinking 阶段耗尽额度导致 content 为空）
     await aiStore.completeStream({
       provider_id: provider.id,
       model: provider.models_json || "gpt-3.5-turbo",
       messages,
       temperature: 0.7,
-      max_tokens: 2000,
       stream: true,
     });
 

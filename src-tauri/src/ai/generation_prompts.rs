@@ -4,6 +4,7 @@ pub fn build_generation_prompt(
     context: &GenerationContext,
     mode: &str,
     user_instruction: Option<&str>,
+    target_words: Option<i32>,
 ) -> String {
     let mut prompt = String::new();
 
@@ -106,6 +107,13 @@ pub fn build_generation_prompt(
         }
         _ => {
             prompt.push_str("请根据上下文生成合适的内容。\n");
+        }
+    }
+
+    // 期望字数（作为软性引导，避免硬 token 限制在推理模型上耗尽 thinking 额度）
+    if let Some(n) = target_words {
+        if n > 0 {
+            prompt.push_str(&format!("\n期望字数：请控制在约 {} 字左右，无需严格相等，情节自然即可。\n", n));
         }
     }
 

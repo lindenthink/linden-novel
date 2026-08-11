@@ -23,7 +23,7 @@ const form = ref<GenerateRequest>({
   mode: 'continuation',
   user_instruction: '',
   parameters: {
-    max_tokens: 2000,
+    target_words: 2000,
     temperature: 0.7,
   },
 });
@@ -136,11 +136,11 @@ function formatTime(time: string): string {
         <div class="form-section">
           <div class="form-label">生成参数</div>
           <div class="parameter-row">
-            <span class="parameter-label">最大长度：</span>
+            <span class="parameter-label">期望章节字数：</span>
             <NInputNumber
-              v-model:value="form.parameters!.max_tokens"
+              v-model:value="form.parameters!.target_words"
               :min="100"
-              :max="10000"
+              :max="50000"
               :step="100"
               style="width: 120px;"
             />

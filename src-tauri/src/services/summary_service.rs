@@ -129,7 +129,10 @@ pub async fn generate_chapter_summary(
         model,
         messages,
         temperature: Some(0.3), // 摘要需要稳定输出
-        max_tokens: Some(SUMMARY_MAX_TOKENS),
+        // 不设置 max_tokens：推理模型（如 DeepSeek V4）默认开启 thinking，
+        // 硬 token 限制可能被 thinking 阶段消耗后导致 content 为空。
+        // 长度约束已通过 prompt 中的 SUMMARY_TARGET_CHARS 软性引导。
+        max_tokens: None,
         stream: false,
     };
 

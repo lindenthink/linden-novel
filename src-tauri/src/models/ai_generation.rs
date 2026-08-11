@@ -14,7 +14,10 @@ pub struct AiGenerationHistory {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenerationParameters {
-    pub max_tokens: Option<i32>,
+    /// 期望章节字数（作为 prompt 引导，而非硬性 token 限制）
+    /// 反序列化时兼容旧字段名 "max_tokens"
+    #[serde(default, alias = "max_tokens")]
+    pub target_words: Option<i32>,
     pub temperature: Option<f32>,
     pub style: Option<String>,
 }

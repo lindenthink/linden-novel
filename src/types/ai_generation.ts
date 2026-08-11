@@ -1,5 +1,6 @@
 export interface GenerationParameters {
-  max_tokens?: number;
+  // 期望章节字数（作为 prompt 软性引导，而非硬性的 token 上限）
+  target_words?: number;
   temperature?: number;
   style?: string;
 }

@@ -241,7 +241,9 @@ pub async fn generate_chapter_snapshots(
             model: model.clone(),
             messages,
             temperature: Some(0.2),
-            max_tokens: Some(500),
+            // 不设置 max_tokens：推理模型（如 DeepSeek V4）默认开启 thinking，
+            // 硬 token 限制会被 thinking 消耗后导致 content 为空。
+            max_tokens: None,
             stream: false,
         };
 

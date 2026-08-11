@@ -48,7 +48,17 @@ pub async fn generate(
     }
 
     // 构建提示词
-    let prompt = generation_prompts::build_generation_prompt(&context, mode, user_instruction);
+    let params = parameters.unwrap_or(crate::models::ai_generation::GenerationParameters {
+        target_words: None,
+        temperature: None,
+        style: None,
+    });
+    let prompt = generation_prompts::build_generation_prompt(
+        &context,
+        mode,
+        user_instruction,
+        params.target_words,
+    );
 
     // 日志：输出完整提示词
     tracing::info!("=== AI Generation Prompt ===");
@@ -84,17 +94,13 @@ pub async fn generate(
         },
     ];
 
-    let params = parameters.unwrap_or(crate::models::ai_generation::GenerationParameters {
-        max_tokens: None,
-        temperature: None,
-        style: None,
-    });
-
     let request = CompletionRequest {
         model: provider.models_json.clone(),
         messages,
         temperature: params.temperature,
-        max_tokens: params.max_tokens,
+        // 不设置 max_tokens：推理模型（如 DeepSeek V4）默认开启 thinking，
+        // 硬 token 限制会被 thinking 阶段全部消耗，导致 content 为空。
+        max_tokens: None,
         stream: false,
     };
 
