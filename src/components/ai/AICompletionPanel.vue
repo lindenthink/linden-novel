@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { NButton, NInput, NSpace, NIcon, NAlert, useMessage } from "naive-ui";
 import { useAiStore } from "../../stores/ai";
 import { useChapterStore } from "../../stores/chapter";
@@ -27,6 +27,7 @@ const message = useMessage();
 const userInput = ref("");
 const isLoading = ref(false);
 const chapterElements = ref<ChapterElement[]>([]);
+const inputRef = ref<InstanceType<typeof NInput> | null>(null);
 
 // 检查章节是否关联了角色
 const hasCharacterAssociation = computed(() => {
@@ -47,11 +48,6 @@ const modeTitle = computed(() => {
 
 // 构建 AI 请求
 async function requestCompletion() {
-  if (!userInput.value.trim()) {
-    message.warning("请输入 AI 指令");
-    return;
-  }
-
   isLoading.value = true;
   aiStore.streamContent = "";
   aiStore.streamError = null;
@@ -65,13 +61,17 @@ async function requestCompletion() {
       return;
     }
 
-    // 根据模式构建不同的提示词
+    const userInstruction = userInput.value.trim();
+
+    // 根据模式构建不同的提示词（指令为可选，未填写时使用默认提示）
     const modePrompts = {
-      complete: `指令：${userInput.value}\n\n上下文：\n${props.contextText}\n\n请根据指令和上下文生成内容：`,
-      continue: `请继续续写以下内容，保持风格和情节的连贯性：\n\n${props.contextText}\n\n用户补充指令：${userInput.value}`,
-      rewrite: `请改写以下内容，使其更加生动、流畅：\n\n${props.contextText}\n\n用户补充指令：${userInput.value}`,
-      expand: `请扩写以下内容，增加细节描写和情节发展：\n\n${props.contextText}\n\n用户补充指令：${userInput.value}`,
-      polish: `请润色以下内容，优化语言表达和文学性：\n\n${props.contextText}\n\n用户补充指令：${userInput.value}`,
+      complete: userInstruction
+        ? `指令：${userInstruction}\n\n上下文：\n${props.contextText}\n\n请根据指令和上下文生成内容：`
+        : `请根据以下上下文补全内容：\n\n${props.contextText}`,
+      continue: `请继续续写以下内容，保持风格和情节的连贯性：\n\n${props.contextText}${userInstruction ? `\n\n用户补充指令：${userInstruction}` : ""}`,
+      rewrite: `请改写以下内容，使其更加生动、流畅：\n\n${props.contextText}${userInstruction ? `\n\n用户补充指令：${userInstruction}` : ""}`,
+      expand: `请扩写以下内容，增加细节描写和情节发展：\n\n${props.contextText}${userInstruction ? `\n\n用户补充指令：${userInstruction}` : ""}`,
+      polish: `请润色以下内容，优化语言表达和文学性：\n\n${props.contextText}${userInstruction ? `\n\n用户补充指令：${userInstruction}` : ""}`,
     };
 
     // 构建消息
@@ -143,7 +143,7 @@ watch(() => props.visible, async (newVal) => {
     userInput.value = "";
     aiStore.streamContent = "";
     aiStore.streamError = null;
-    
+
     // 加载章节关联元素
     const activeChapterId = chapterStore.activeChapterId;
     if (activeChapterId) {
@@ -156,6 +156,10 @@ watch(() => props.visible, async (newVal) => {
     } else {
       chapterElements.value = [];
     }
+
+    // 聚焦输入框
+    await nextTick();
+    inputRef.value?.focus();
   }
 });
 </script>
@@ -194,9 +198,10 @@ watch(() => props.visible, async (newVal) => {
             </NAlert>
             
             <NInput
+              ref="inputRef"
               v-model:value="userInput"
               type="textarea"
-              placeholder="输入 AI 指令，例如：继续写这段对话...&#10;&#10;快捷键：Ctrl+Enter 发送，Esc 关闭"
+              placeholder="输入 AI 指令（可选），例如：继续写这段对话...&#10;&#10;快捷键：Ctrl+Enter 发送，Esc 关闭"
               :rows="3"
               :disabled="isLoading"
               @keydown.ctrl.enter="requestCompletion"
@@ -205,7 +210,6 @@ watch(() => props.visible, async (newVal) => {
               <NButton
                 type="primary"
                 :loading="isLoading"
-                :disabled="!userInput.trim()"
                 @click="requestCompletion"
               >
                 {{ isLoading ? "生成中..." : "生成" }}
@@ -277,10 +281,12 @@ watch(() => props.visible, async (newVal) => {
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: slideUp 0.3s ease-out;
+  color: #1f2937;
 }
 
 :root.dark .ai-completion-panel {
-  background: #1f1f1f;
+  background: #1e1e1e;
+  color: #f3f4f6;
 }
 
 .panel-header {
@@ -301,6 +307,10 @@ watch(() => props.visible, async (newVal) => {
   gap: 8px;
   font-size: 16px;
   font-weight: 600;
+}
+
+:root.dark .title {
+  color: #f3f4f6;
 }
 
 .input-section {
@@ -421,9 +431,28 @@ watch(() => props.visible, async (newVal) => {
 }
 
 :root.dark .tips {
-  background: #1e3a8a;
+  background: #1e293b;
   border-top-color: #374151;
   color: #9ca3af;
+}
+
+/* NInput 暗色模式适配 */
+:root.dark .ai-completion-panel :deep(.n-input) {
+  background-color: transparent;
+}
+
+:root.dark .ai-completion-panel :deep(.n-input .n-input__border),
+:root.dark .ai-completion-panel :deep(.n-input .n-input__border-hover) {
+  border-color: #374151;
+}
+
+:root.dark .ai-completion-panel :deep(.n-input .n-input__textarea-el) {
+  color: #f3f4f6;
+  caret-color: #6366f1;
+}
+
+:root.dark .ai-completion-panel :deep(.n-input .n-input__textarea-el::placeholder) {
+  color: #6b7280;
 }
 
 /* 动画 */
