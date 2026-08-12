@@ -2,9 +2,9 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::SqlitePool;
 use std::path::Path;
 
-/// 当前 UTC 时间，格式 `YYYY-MM-DD HH:MM:SS`，与 SQLite `datetime('now')` 一致
+/// 当前本地时间，格式 `YYYY-MM-DD HH:MM:SS`
 pub fn now() -> String {
-    chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string()
+    chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
 /// 初始化 SQLite 连接池并执行迁移

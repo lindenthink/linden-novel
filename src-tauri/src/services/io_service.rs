@@ -168,7 +168,7 @@ pub async fn import_project_json(
 
     // 2. 创建新项目
     let project_id = uuid::Uuid::new_v4().to_string();
-    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
     sqlx::query(
         "INSERT INTO projects (id, title, summary, genre, target_words, created_at, updated_at)
