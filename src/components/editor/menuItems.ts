@@ -187,6 +187,19 @@ export const sharedMenuItems: MenuItem[] = [
     },
   },
   {
+    id: "ai-expand",
+    title: "AI 扩写",
+    description: "让 AI 扩写当前内容，增加细节",
+    icon: "i-carbon-ai",
+    category: "AI 助手",
+    command: ({ editor, range }) => {
+      const chain = editor.chain().focus();
+      if (range) chain.deleteRange(range);
+      chain.run();
+      (editor as any).emit("aiAction", "expand");
+    },
+  },
+  {
     id: "ai-rewrite",
     title: "AI 改写",
     description: "让 AI 改写当前段落",

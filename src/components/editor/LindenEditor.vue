@@ -11,12 +11,10 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { useChapterStore } from "../../stores/chapter";
 import { useMessage } from "naive-ui";
-import { useEditorUI } from "../../composables/useEditorUI";
+import { useEditorUI, type AIGenerationMode } from "../../composables/useEditorUI";
 import { useEditorSettings } from "../../composables/useEditorSettings";
-import { listChapterElements } from "../../api/element";
 import BlockMenu from "./BlockMenu.vue";
 import ChapterElementBar from "./ChapterElementBar.vue";
-import AICompletionPanel from "../ai/AICompletionPanel.vue";
 import AIGenerationDialog from "../ai/AIGenerationDialog.vue";
 import { SceneBreak } from "./extensions/sceneBreak";
 import { DraggableHandle } from "./extensions/DraggableHandle";
@@ -31,17 +29,11 @@ const { isAutoSaveEnabled } = useEditorSettings();
 let suppressOnUpdate = false;
 
 // 编辑器 UI 共享状态（AI 生成对话框）
-const { showAIGenerationDialog } = useEditorUI();
+const { showAIGenerationDialog, openAIGeneration } = useEditorUI();
 
 // 块级菜单
 const showBlockMenu = ref(false);
 const blockMenuPosition = ref<{ x: number; y: number } | null>(null);
-
-// AI 补全
-const showAIPanel = ref(false);
-const aiContextText = ref("");
-const aiCursorPosition = ref<{ from: number; to: number } | null>(null);
-const aiMode = ref<"complete" | "continue" | "rewrite" | "expand" | "polish">("complete");
 
 // TipTap 编辑器实例
 const editor = useEditor({
@@ -96,8 +88,25 @@ watch(
       showBlockMenu.value = true;
     };
 
+    // Slash 命令菜单中的 AI 操作：映射到对话框对应模式并打开
+    const aiActionToMode: Record<string, AIGenerationMode> = {
+      continue: "continuation",
+      rewrite: "rewrite",
+      polish: "polish",
+      expand: "expansion",
+    };
     const handleAIAction = (action: string) => {
-      openAICompletion(action as any);
+      const mode = aiActionToMode[action];
+      if (!editor.value) return;
+      if (!chapterStore.activeChapterId) {
+        message.warning("请先选择一个章节");
+        return;
+      }
+      if (mode) {
+        openAIGeneration(mode);
+      } else {
+        openAIGeneration("continuation");
+      }
     };
 
     ed.on("blockHandleClick" as any, handleBlockClick);
@@ -150,83 +159,9 @@ watch(
   }
 );
 
-// AI 补全功能
-function openAICompletion(mode: "complete" | "continue" | "rewrite" | "expand" | "polish" = "complete") {
-  if (!editor.value) return;
-
-  const { from, to } = editor.value.state.selection;
-  const text = editor.value.state.doc.textBetween(from, to, "\n");
-
-  if (!text) {
-    const paragraph = editor.value.state.doc.resolve(from).parent;
-    const paragraphText = paragraph.textContent;
-    if (paragraphText) {
-      aiContextText.value = paragraphText;
-    } else {
-      message.warning("请先选择文本或将光标放在段落中");
-      return;
-    }
-  } else {
-    aiContextText.value = text;
-  }
-
-  aiCursorPosition.value = { from, to };
-  aiMode.value = mode;
-  showAIPanel.value = true;
-}
-
-function handleAIAccept(content: string) {
-  if (!editor.value) return;
-
-  const { from, to } = editor.value.state.selection;
-
-  if (from !== to) {
-    editor.value.chain().focus().insertContent(content).run();
-  } else {
-    editor.value.chain().focus().insertContentAt(to, content).run();
-  }
-
-  showAIPanel.value = false;
-  message.success("AI 补全已应用");
-}
-
-function handleAIReject() {
-  showAIPanel.value = false;
-  message.info("已拒绝 AI 补全");
-}
-
-function handleAIClose() {
-  showAIPanel.value = false;
-}
-
-// AI 生成功能
-async function openAIGeneration() {
-  if (!editor.value) return;
-  
-  const activeChapterId = chapterStore.activeChapterId;
-  if (!activeChapterId) {
-    message.warning("请先选择一个章节");
-    return;
-  }
-  
-  // 检查章节是否关联了角色，未关联则仅提示不打开对话框
-  try {
-    const elements = await listChapterElements(activeChapterId);
-    const hasCharacter = elements.some(el => el.element_type === 'character');
-    if (!hasCharacter) {
-      message.warning("当前章节未关联角色，请先在侧边栏关联关键角色、故事线等元素后再使用 AI 生成。");
-      return;
-    }
-  } catch (e) {
-    console.error("加载章节元素失败:", e);
-  }
-  
-  showAIGenerationDialog.value = true;
-}
-
+// AI 生成对话框应用结果
 function handleAIGenerationApply(content: string) {
   if (!editor.value) return;
-  
   editor.value.chain().focus().insertContent(content).run();
   message.success("AI 生成内容已插入");
 }
@@ -249,13 +184,22 @@ function handleKeydown(e: KeyboardEvent) {
       }
     });
   }
-  if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+  // Ctrl+K / Ctrl+Shift+G 都打开 AI 生成对话框（默认续写模式）
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
     e.preventDefault();
-    openAICompletion();
+    if (!chapterStore.activeChapterId) {
+      message.warning("请先选择一个章节");
+      return;
+    }
+    openAIGeneration("continuation");
   }
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "g" || e.key === "G")) {
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key.toLowerCase() === "g")) {
     e.preventDefault();
-    openAIGeneration();
+    if (!chapterStore.activeChapterId) {
+      message.warning("请先选择一个章节");
+      return;
+    }
+    openAIGeneration("continuation");
   }
 }
 
@@ -274,17 +218,6 @@ onUnmounted(() => {
   <div class="linden-editor flex flex-col h-full relative">
     <!-- 章节元素关联栏 -->
     <ChapterElementBar />
-
-    <!-- AI 补全面板 -->
-    <AICompletionPanel
-      v-model:visible="showAIPanel"
-      :context-text="aiContextText"
-      :cursor-position="aiCursorPosition"
-      :mode="aiMode"
-      @accept="handleAIAccept"
-      @reject="handleAIReject"
-      @close="handleAIClose"
-    />
 
     <!-- AI 生成对话框 -->
     <AIGenerationDialog

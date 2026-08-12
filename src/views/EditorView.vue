@@ -8,7 +8,6 @@ import { useChapterStore } from "../stores/chapter";
 import { useLongContext } from "../composables/useLongContext";
 import { useEditorUI } from "../composables/useEditorUI";
 import { exportProject } from "../api/io";
-import { listChapterElements } from "../api/element";
 import ThreeColumnLayout from "../components/layout/ThreeColumnLayout.vue";
 import ChapterTree from "../components/layout/ChapterTree.vue";
 import RightSidebar from "../components/layout/RightSidebar.vue";
@@ -21,7 +20,7 @@ const projectStore = useProjectStore();
 const chapterStore = useChapterStore();
 const message = useMessage();
 const dialog = useDialog();
-const { showAIGenerationDialog } = useEditorUI();
+const { openAIGeneration } = useEditorUI();
 const {
   summaryLoading,
   batchLoading,
@@ -91,23 +90,12 @@ async function handleExport(key: string) {
 }
 
 // ---- AI 生成 ----
-async function openAIGeneration() {
+function handleOpenAIGeneration() {
   if (!chapterStore.activeChapterId) {
     message.warning("请先选择一个章节");
     return;
   }
-  // 检查章节是否关联了角色，未关联则仅提示不打开对话框
-  try {
-    const elements = await listChapterElements(chapterStore.activeChapterId);
-    const hasCharacter = elements.some(el => el.element_type === 'character');
-    if (!hasCharacter) {
-      message.warning("当前章节未关联角色，请先在侧边栏关联关键角色、故事线等元素后再使用 AI 生成。");
-      return;
-    }
-  } catch (e) {
-    console.error("加载章节元素失败:", e);
-  }
-  showAIGenerationDialog.value = true;
+  openAIGeneration("continuation");
 }
 
 // ---- 长上下文操作 ----
@@ -250,7 +238,7 @@ watch(() => chapterStore.activeChapterId, (chId) => {
         </span>
       </div>
       <NSpace size="small" align="center">
-        <NButton quaternary size="small" @click="openAIGeneration">
+        <NButton quaternary size="small" @click="handleOpenAIGeneration">
           <template #icon>
             <span class="i-carbon-ai-generate" />
           </template>

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { NModal, NSelect, NInput, NInputNumber, NButton, NSpace, NAlert, NSpin, NTag, NPopconfirm } from 'naive-ui';
+import { ref, computed, watch, nextTick } from 'vue';
+import { NModal, NSelect, NInput, NInputNumber, NButton, NSpace, NAlert, NSpin, NTag, NPopconfirm, useMessage } from 'naive-ui';
 import { useAiGenerationStore } from '../../stores/ai_generation';
 import { useChapterStore } from '../../stores/chapter';
+import { useEditorUI, type AIGenerationMode } from '../../composables/useEditorUI';
 import type { GenerateRequest } from '../../types/ai_generation';
+import { listChapterElements } from '../../api/element';
 
 const props = defineProps<{
   show: boolean;
@@ -16,6 +18,8 @@ const emit = defineEmits<{
 
 const aiGenerationStore = useAiGenerationStore();
 const chapterStore = useChapterStore();
+const { aiGenerationDefaultMode } = useEditorUI();
+const message = useMessage();
 
 // 表单数据
 const form = ref<GenerateRequest>({
@@ -43,13 +47,31 @@ const canGenerate = computed(() => {
   return activeChapterId.value && !aiGenerationStore.loading;
 });
 
-// 监听对话框显示
-watch(() => props.show, async (newVal) => {
-  if (newVal && activeChapterId.value) {
-    form.value.chapter_id = activeChapterId.value;
-    aiGenerationStore.loadHistory(activeChapterId.value);
+// 监听对话框显示：设置默认模式并加载历史
+watch(
+  () => props.show,
+  async (newVal) => {
+    if (newVal && activeChapterId.value) {
+      form.value.chapter_id = activeChapterId.value;
+      form.value.mode = aiGenerationDefaultMode.value as AIGenerationMode;
+      form.value.user_instruction = '';
+      aiGenerationStore.loadHistory(activeChapterId.value);
+
+      // 首次打开时检查是否关联角色
+      try {
+        const elements = await listChapterElements(activeChapterId.value);
+        const hasCharacter = elements.some(el => el.element_type === 'character');
+        if (!hasCharacter) {
+          message.warning('当前章节未关联角色，请先在侧边栏关联关键角色、故事线等元素后再使用 AI 生成。');
+        }
+      } catch (e) {
+        console.error('加载章节元素失败:', e);
+      }
+
+      await nextTick();
+    }
   }
-});
+);
 
 // 生成
 async function handleGenerate() {
@@ -68,6 +90,11 @@ function handleApply() {
     emit('apply', aiGenerationStore.currentGeneration.content);
     handleClose();
   }
+}
+
+// 应用历史记录到编辑器
+function handleApplyHistory(content: string) {
+  emit('apply', content);
 }
 
 // 关闭对话框
@@ -227,6 +254,14 @@ function formatTime(time: string): string {
                     {{ modeOptions.find(m => m.value === item.mode)?.label || item.mode }}
                   </NTag>
                   <span class="history-time">{{ formatTime(item.created_at) }}</span>
+                  <NButton
+                    size="tiny"
+                    quaternary
+                    type="primary"
+                    @click="handleApplyHistory(item.output_content)"
+                  >
+                    应用
+                  </NButton>
                   <NButton
                     size="tiny"
                     quaternary
