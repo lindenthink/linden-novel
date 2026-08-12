@@ -3,9 +3,13 @@ import { computed } from "vue";
 import { useChapterStore } from "../../stores/chapter";
 import { useProjectStore } from "../../stores/project";
 import { useWordCount } from "../../composables/useWordCount";
+import { useEditorSettings } from "../../composables/useEditorSettings";
+import { NSwitch, NTooltip, useMessage } from "naive-ui";
 
 const chapterStore = useChapterStore();
 const projectStore = useProjectStore();
+const { autoSaveEnabled, setAutoSave } = useEditorSettings();
+const message = useMessage();
 
 // 实时字数统计（前端估值）：传入当前正文文本的 ref
 const contentText = computed(() => chapterStore.activeContent?.content_text ?? "");
@@ -27,6 +31,11 @@ const saveLabel = computed(() => {
   if (chapterStore.dirty) return "未保存";
   return "已保存";
 });
+
+async function handleAutoSaveChange(checked: boolean) {
+  await setAutoSave(checked);
+  message.success(checked ? "已启用自动保存" : "已关闭自动保存");
+}
 </script>
 
 <template>
@@ -56,8 +65,25 @@ const saveLabel = computed(() => {
     <!-- 状态 -->
     <span v-if="statusLabel">{{ statusLabel }}</span>
 
-    <!-- 右侧：保存状态 -->
+    <!-- 右侧：自动保存开关 + 保存状态 -->
     <div class="ml-auto flex items-center gap-3">
+      <NTooltip :trigger="'hover'" placement="top">
+        <template #trigger>
+          <div class="flex items-center gap-1 cursor-pointer">
+            <span :class="autoSaveEnabled ? 'text-emerald-500' : 'text-gray-400'"
+              :style="{ fontSize: '12px', lineHeight: 1 }">
+              <span class="i-carbon-save" />
+            </span>
+            <NSwitch
+              :value="autoSaveEnabled"
+              size="small"
+              @update:value="handleAutoSaveChange"
+            />
+          </div>
+        </template>
+        {{ autoSaveEnabled ? "自动保存：开" : "自动保存：关" }}
+      </NTooltip>
+
       <span :class="chapterStore.dirty ? 'text-amber-500' : 'opacity-50'">
         {{ saveLabel }}
       </span>
