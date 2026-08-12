@@ -107,8 +107,8 @@ function formatTime(time: string): string {
     :show="show"
     preset="card"
     title="AI 生成"
-    style="width: 900px; max-width: 90vw;"
-    :mask-closable="false"
+    style="width: 800px; max-width: 90vw;"
+    :mask-closable="true"
     @update:show="handleClose"
   >
     <div class="ai-generation-dialog">

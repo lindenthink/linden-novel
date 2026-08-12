@@ -15,7 +15,6 @@ import { useEditorUI } from "../../composables/useEditorUI";
 import { useEditorSettings } from "../../composables/useEditorSettings";
 import { listChapterElements } from "../../api/element";
 import BlockMenu from "./BlockMenu.vue";
-import ContextMenu from "./ContextMenu.vue";
 import ChapterElementBar from "./ChapterElementBar.vue";
 import AICompletionPanel from "../ai/AICompletionPanel.vue";
 import AIGenerationDialog from "../ai/AIGenerationDialog.vue";
@@ -33,11 +32,6 @@ let suppressOnUpdate = false;
 
 // 编辑器 UI 共享状态（AI 生成对话框）
 const { showAIGenerationDialog } = useEditorUI();
-
-// 右键菜单
-const showContextMenu = ref(false);
-const contextMenuPosition = ref<{ x: number; y: number } | null>(null);
-const contextMenuSelectedText = ref("");
 
 // 块级菜单
 const showBlockMenu = ref(false);
@@ -81,15 +75,6 @@ const editor = useEditor({
     const json = editor.getJSON();
     const text = editor.getText();
     chapterStore.updateContent(JSON.stringify(json), text);
-  },
-  onSelectionUpdate: ({ editor }) => {
-    const { from, to } = editor.state.selection;
-    if (from !== to) {
-      const text = editor.state.doc.textBetween(from, to, "\n");
-      contextMenuSelectedText.value = text;
-    } else {
-      contextMenuSelectedText.value = "";
-    }
   },
 });
 
@@ -246,27 +231,6 @@ function handleAIGenerationApply(content: string) {
   message.success("AI 生成内容已插入");
 }
 
-// 右键菜单处理
-function handleContextMenu(e: MouseEvent) {
-  if (!editor.value) return;
-  
-  e.preventDefault();
-  
-  // 获取当前选区
-  const { from, to } = editor.value.state.selection;
-  if (from !== to) {
-    contextMenuSelectedText.value = editor.value.state.doc.textBetween(from, to, "\n");
-  } else {
-    contextMenuSelectedText.value = "";
-  }
-  
-  contextMenuPosition.value = {
-    x: e.clientX,
-    y: e.clientY,
-  };
-  showContextMenu.value = true;
-}
-
 // 快捷键监听
 function handleKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
@@ -295,40 +259,14 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-// 点击编辑器时关闭右键菜单
-function handleEditorClick() {
-  if (showContextMenu.value) {
-    showContextMenu.value = false;
-  }
-}
-
-// 存储编辑器 DOM 引用，避免 onUnmounted 时访问已销毁的 view
-let editorDom: HTMLElement | null = null;
-
 onMounted(() => {
   window.addEventListener("keydown", handleKeydown);
-
-  // 绑定右键菜单 — view 可能尚未就绪，用 try-catch 保护
-  try {
-    editorDom = editor.value?.view.dom ?? null;
-    if (editorDom) {
-      editorDom.addEventListener("contextmenu", handleContextMenu);
-    }
-  } catch {
-    // 编辑器视图尚未挂载，跳过
-  }
 });
 
 onUnmounted(() => {
   window.removeEventListener("keydown", handleKeydown);
 
   if (saveTimer) clearTimeout(saveTimer);
-
-  // 使用存储的 DOM 引用，避免访问已销毁的 editor.view
-  if (editorDom) {
-    editorDom.removeEventListener("contextmenu", handleContextMenu);
-    editorDom = null;
-  }
 });
 </script>
 
@@ -362,20 +300,9 @@ onUnmounted(() => {
       @close="showBlockMenu = false"
     />
 
-    <!-- 右键上下文菜单 -->
-    <ContextMenu
-      v-if="editor"
-      :editor="editor"
-      :visible="showContextMenu"
-      :position="contextMenuPosition"
-      :selected-text="contextMenuSelectedText"
-      @update:visible="showContextMenu = $event"
-    />
-
     <!-- 编辑器内容区（纸张风格） -->
     <div
       class="editor-scroll-area flex-1 overflow-auto relative"
-      @click="handleEditorClick"
     >
       <div class="editor-paper mx-auto max-w-3xl px-12 py-10">
         <EditorContent :editor="editor" class="max-w-none" />
