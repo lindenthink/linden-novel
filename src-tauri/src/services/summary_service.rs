@@ -10,8 +10,6 @@ use crate::services::{ai_api_key_service, ai_provider_service, embedding_service
 
 /// 摘要生成的目标长度（中文字符）
 const SUMMARY_TARGET_CHARS: usize = 200;
-/// 摘要最大 token 上限
-const SUMMARY_MAX_TOKENS: i32 = 400;
 
 /// 获取章节正文（content_text）
 async fn get_chapter_text(pool: &SqlitePool, chapter_id: &str) -> Result<String, AppError> {

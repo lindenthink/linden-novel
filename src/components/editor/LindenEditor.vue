@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount, onMounted, onUnmounted } from "vue";
+import { ref, watch, onMounted, onUnmounted } from "vue";
 import { EditorContent, useEditor } from "@tiptap/vue-3";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -12,6 +12,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import { useChapterStore } from "../../stores/chapter";
 import { useMessage } from "naive-ui";
 import { useEditorUI } from "../../composables/useEditorUI";
+import { useEditorSettings } from "../../composables/useEditorSettings";
 import { listChapterElements } from "../../api/element";
 import BlockMenu from "./BlockMenu.vue";
 import ContextMenu from "./ContextMenu.vue";
@@ -25,6 +26,10 @@ import "./extensions/slashMenu.css";
 
 const chapterStore = useChapterStore();
 const message = useMessage();
+const { isAutoSaveEnabled } = useEditorSettings();
+
+// 抑制标志：通过 setContent 同步内容时，onUpdate 不应标记为 dirty
+let suppressOnUpdate = false;
 
 // 编辑器 UI 共享状态（AI 生成对话框）
 const { showAIGenerationDialog } = useEditorUI();
@@ -72,6 +77,7 @@ const editor = useEditor({
   ],
   content: "",
   onUpdate: ({ editor }) => {
+    if (suppressOnUpdate) return;
     const json = editor.getJSON();
     const text = editor.getText();
     chapterStore.updateContent(JSON.stringify(json), text);
@@ -126,6 +132,7 @@ watch(
   (content) => {
     if (!editor.value || !content) return;
 
+    suppressOnUpdate = true;
     try {
       const json = JSON.parse(content.content_json);
       editor.value.commands.setContent(json);
@@ -135,6 +142,8 @@ watch(
       } catch {
         // 编辑器视图可能尚未就绪，忽略
       }
+    } finally {
+      suppressOnUpdate = false;
     }
   },
   { immediate: true }
@@ -146,6 +155,7 @@ watch(
   () => chapterStore.dirty,
   (isDirty) => {
     if (!isDirty) return;
+    if (!isAutoSaveEnabled.value) return;
 
     if (saveTimer) clearTimeout(saveTimer);
 
@@ -154,10 +164,6 @@ watch(
     }, 1500);
   }
 );
-
-onBeforeUnmount(() => {
-  if (saveTimer) clearTimeout(saveTimer);
-});
 
 // AI 补全功能
 function openAICompletion(mode: "complete" | "continue" | "rewrite" | "expand" | "polish" = "complete") {
@@ -263,6 +269,22 @@ function handleContextMenu(e: MouseEvent) {
 
 // 快捷键监听
 function handleKeydown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+    e.preventDefault();
+    if (!chapterStore.dirty) {
+      message.info("没有需要保存的更改");
+      return;
+    }
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    chapterStore.flushSave().then((wc) => {
+      if (wc !== null) {
+        message.success("已保存");
+      }
+    });
+  }
   if ((e.ctrlKey || e.metaKey) && e.key === "k") {
     e.preventDefault();
     openAICompletion();
@@ -299,6 +321,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener("keydown", handleKeydown);
+
+  if (saveTimer) clearTimeout(saveTimer);
 
   // 使用存储的 DOM 引用，避免访问已销毁的 editor.view
   if (editorDom) {

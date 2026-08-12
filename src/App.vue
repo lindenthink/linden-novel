@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { NConfigProvider, NMessageProvider, NDialogProvider } from "naive-ui";
 import { useTheme } from "./composables/useTheme";
+import { useEditorSettings } from "./composables/useEditorSettings";
 import FloatingSettings from "./components/common/FloatingSettings.vue";
 
-const { theme, init } = useTheme();
-init();
+const { theme, init: initTheme } = useTheme();
+const { init: initEditorSettings } = useEditorSettings();
+
+initTheme();
+initEditorSettings();
 </script>
 
 <template>
