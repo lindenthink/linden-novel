@@ -70,13 +70,12 @@
 }
 
 /* Dark mode */
-.dark .slash-menu-item:hover,
-.dark .slash-menu-item.selected {
+.dark .slash-menu-item:hover {
   background-color: #374151;
 }
 
 .dark .slash-menu-item.selected {
-  background-color: #374151;
+  background-color: rgba(99, 226, 183, 0.15);
 }
 
 .dark .slash-icon {

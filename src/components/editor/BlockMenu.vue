@@ -480,13 +480,12 @@ onUnmounted(() => {
   color: #d1d5db;
 }
 
-.dark .ctx-item:hover,
-.dark .ctx-item.is-active {
+.dark .ctx-item:hover {
   background-color: #374151;
 }
 
 .dark .ctx-item.is-active {
-  background-color: #374151;
+  background-color: rgba(99, 226, 183, 0.15);
   color: #e0e7ff;
 }
 
