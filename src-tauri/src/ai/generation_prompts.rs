@@ -36,11 +36,11 @@ pub fn build_generation_prompt(
         prompt.push_str("## 关联角色\n");
         for character in &context.characters {
             prompt.push_str(&format!("- {}", character.name));
+            if let Some(personality) = &character.personality {
+                prompt.push_str(&format!("（角色：{}）", personality));
+            }
             if let Some(desc) = &character.description {
                 prompt.push_str(&format!("：{}", desc));
-            }
-            if let Some(personality) = &character.personality {
-                prompt.push_str(&format!("（性格：{}）", personality));
             }
             prompt.push('\n');
         }
@@ -88,43 +88,50 @@ pub fn build_generation_prompt(
     }
 
     // 生成要求
-    prompt.push_str("## 生成要求\n");
+    prompt.push_str("## 创作指令\n");
     match mode {
         "continuation" => {
-            prompt.push_str("请继续续写以上内容，保持风格和情节的连贯性。\n");
+            prompt.push_str("- 请继续续写以上内容，保持风格和情节的连贯性。\n");
         }
         "expansion" => {
-            prompt.push_str("请扩写以上内容，增加细节描写和情节发展。\n");
+            prompt.push_str("- 请扩写以上内容，增加细节描写和情节发展。\n");
         }
         "rewrite" => {
-            prompt.push_str("请改写以上内容，使其更加生动、流畅。\n");
+            prompt.push_str("- 请改写以上内容，使其更加生动、流畅。\n");
         }
         "polish" => {
-            prompt.push_str("请润色以上内容，优化语言表达和文学性。\n");
+            prompt.push_str("- 请润色以上内容，优化语言表达和文学性。\n");
         }
         "outline" => {
-            prompt.push_str("请为以上内容生成详细的章节大纲。\n");
+            prompt.push_str("- 请为以上内容生成详细的章节大纲。\n");
         }
         _ => {
-            prompt.push_str("请根据上下文生成合适的内容。\n");
+            prompt.push_str("- 请根据上下文生成合适的内容。\n");    
+        }
+    }
+    prompt.push('\n');
+
+      // 用户补充指令
+    if let Some(instruction) = user_instruction {
+        if !instruction.trim().is_empty() {
+            prompt.push_str(&format!("- 用户补充指令：{}\n", instruction));
         }
     }
 
+    prompt.push_str("## 风格与质量控制\n");
+    prompt.push_str("- 保持与前文一致的叙事视角和语言风格。\n");
+    prompt.push_str("- 对话自然，符合角色身份和性格。\n");
+    prompt.push_str("- 节奏张弛有度，避免平铺直叙。\n");
+    prompt.push_str("- 如果涉及设定，请贴合世界观，不要自创矛盾设定。\n");
     // 期望字数（作为软性引导，避免硬 token 限制在推理模型上耗尽 thinking 额度）
     if let Some(n) = target_words {
         if n > 0 {
-            prompt.push_str(&format!("\n期望字数：请控制在约 {} 字左右，无需严格相等，情节自然即可。\n", n));
+            prompt.push_str(&format!("- 字数控制在 {} 字左右，无需严格相等，情节自然即可。\n", n));
         }
     }
-
-    // 用户补充指令
-    if let Some(instruction) = user_instruction {
-        if !instruction.trim().is_empty() {
-            prompt.push_str(&format!("\n用户补充指令：{}\n", instruction));
-        }
-    }
-
-    prompt.push_str("\n请直接输出生成的内容，不要包含任何解释或标记。");
-
+    prompt.push('\n');
+  
+    prompt.push_str("## 约束条件\n");
+    prompt.push_str("- 直接输出小说正文，不要包含任何解释或标记。\n");
     prompt
 }

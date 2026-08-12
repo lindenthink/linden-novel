@@ -16,6 +16,7 @@ export default defineConfig({
       scale: 1.2,
       warn: true,
       collections: {
+        // 图标参见：https://icon-sets.iconify.design/?query=ai&search-prefix=carbon
         carbon: () => import("@iconify-json/carbon/icons.json").then((i) => i.default),
       },
     }),
