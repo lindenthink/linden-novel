@@ -486,7 +486,7 @@ onUnmounted(() => {
 }
 
 .dark .ctx-item.is-active {
-  background-color: #3730a3;
+  background-color: #374151;
   color: #e0e7ff;
 }
 
