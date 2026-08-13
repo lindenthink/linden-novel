@@ -1,6 +1,6 @@
 use sqlx::SqlitePool;
 
-use crate::db::repo::project_repo;
+use crate::db::repo::{embedding_chunk_repo, embedding_repo, entity_snapshot_repo, project_repo};
 use crate::error::AppError;
 use crate::models::project::{CreateProject, Project, UpdateProject};
 
@@ -32,5 +32,16 @@ pub async fn update(
 }
 
 pub async fn delete(pool: &SqlitePool, id: &str) -> Result<(), AppError> {
+    // 清理项目级向量（摘要级 + 切片级），失败仅告警不阻塞业务删除
+    if let Err(e) = embedding_repo::delete_by_project(pool, id).await {
+        tracing::warn!("Failed to clean summary embeddings for project {}: {}", id, e);
+    }
+    if let Err(e) = embedding_chunk_repo::delete_by_project(pool, id).await {
+        tracing::warn!("Failed to clean chunk embeddings for project {}: {}", id, e);
+    }
+    // 清理项目级实体快照（注：chapters/characters/storylines 等主表会被 FK 级联，但 snapshots 无 FK）
+    if let Err(e) = entity_snapshot_repo::delete_by_project(pool, id).await {
+        tracing::warn!("Failed to clean entity snapshots for project {}: {}", id, e);
+    }
     project_repo::delete(pool, id).await.map_err(AppError::from)
 }

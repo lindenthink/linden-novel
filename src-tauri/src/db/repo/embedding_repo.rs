@@ -196,6 +196,30 @@ pub async fn delete_by_project(pool: &SqlitePool, project_id: &str) -> Result<()
     Ok(())
 }
 
+/// 删除指定卷下所有章节的摘要级嵌入（source_type='chapter'）
+///
+/// 必须在卷被级联删除（chapters 随之删除）之前调用，否则子查询将查不到章节。
+pub async fn delete_chapters_by_volume(
+    pool: &SqlitePool,
+    volume_id: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "DELETE FROM embeddings WHERE source_type = 'chapter' AND source_id IN (SELECT id FROM chapters WHERE volume_id = ?)",
+    )
+    .bind(volume_id)
+    .execute(pool)
+    .await?;
+
+    let _ = sqlx::query(
+        "DELETE FROM embeddings_vec WHERE source_type = 'chapter' AND source_id IN (SELECT id FROM chapters WHERE volume_id = ?)",
+    )
+    .bind(volume_id)
+    .execute(pool)
+    .await;
+
+    Ok(())
+}
+
 /// 向量搜索：优先 vec0 加速，失败回退内存余弦
 pub async fn search(
     pool: &SqlitePool,

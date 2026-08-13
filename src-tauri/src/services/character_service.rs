@@ -1,8 +1,10 @@
 use sqlx::SqlitePool;
 
-use crate::db::repo::character_repo;
+use crate::db::repo::{chapter_element_repo, character_repo, embedding_repo, entity_snapshot_repo};
 use crate::error::AppError;
 use crate::models::character::{Character, CreateCharacter, UpdateCharacter};
+use crate::models::embedding::EmbeddingSourceType;
+use crate::models::entity_snapshot::EntityType;
 
 pub async fn list(pool: &SqlitePool, project_id: &str) -> Result<Vec<Character>, AppError> {
     character_repo::list_by_project(pool, project_id)
@@ -35,5 +37,17 @@ pub async fn update(
 }
 
 pub async fn delete(pool: &SqlitePool, id: &str) -> Result<(), AppError> {
+    // 清理关联向量（embeddings）
+    if let Err(e) = embedding_repo::delete_by_source(pool, EmbeddingSourceType::Character, id).await {
+        tracing::warn!("Failed to clean character embeddings {}: {}", id, e);
+    }
+    // 清理关联 entity_snapshots
+    if let Err(e) = entity_snapshot_repo::delete_by_entity(pool, EntityType::Character, id).await {
+        tracing::warn!("Failed to clean character snapshots {}: {}", id, e);
+    }
+    // 清理所有章节对该角色的引用
+    if let Err(e) = chapter_element_repo::remove_by_element(pool, "character", id).await {
+        tracing::warn!("Failed to clean chapter elements for character {}: {}", id, e);
+    }
     character_repo::delete(pool, id).await.map_err(AppError::from)
 }

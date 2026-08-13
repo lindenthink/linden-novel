@@ -141,6 +141,25 @@ pub async fn delete_by_project(pool: &SqlitePool, project_id: &str) -> Result<()
     Ok(())
 }
 
+/// 删除指定卷下所有章节的切片向量
+///
+/// 必须在卷被级联删除（chapters 随之删除）之前调用，否则子查询将查不到章节。
+pub async fn delete_by_volume(pool: &SqlitePool, volume_id: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "DELETE FROM embedding_chunks WHERE chapter_id IN (SELECT id FROM chapters WHERE volume_id = ?)",
+    )
+    .bind(volume_id)
+    .execute(pool)
+    .await?;
+    let _ = sqlx::query(
+        "DELETE FROM chunks_vec WHERE chapter_id IN (SELECT id FROM chapters WHERE volume_id = ?)",
+    )
+    .bind(volume_id)
+    .execute(pool)
+    .await;
+    Ok(())
+}
+
 pub async fn list_chapter_hashes(
     pool: &SqlitePool,
     chapter_id: &str,

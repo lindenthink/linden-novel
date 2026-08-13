@@ -1,9 +1,10 @@
 use sqlx::SqlitePool;
 
-use crate::db::repo::{chapter_repo, content_repo};
+use crate::db::repo::{chapter_repo, content_repo, embedding_chunk_repo, embedding_repo, entity_snapshot_repo};
 use crate::error::AppError;
 use crate::models::chapter::{Chapter, CreateChapter, UpdateChapterMeta};
 use crate::models::content::ChapterContent;
+use crate::models::embedding::EmbeddingSourceType;
 
 pub async fn list_by_volume(pool: &SqlitePool, volume_id: &str) -> Result<Vec<Chapter>, AppError> {
     chapter_repo::list_by_volume(pool, volume_id)
@@ -48,6 +49,17 @@ pub async fn update_meta(
 }
 
 pub async fn delete(pool: &SqlitePool, id: &str) -> Result<(), AppError> {
+    // 清理该章节的向量（切片级 + 摘要级），失败仅告警不阻塞业务删除
+    if let Err(e) = embedding_chunk_repo::delete_by_chapter(pool, id).await {
+        tracing::warn!("Failed to clean chunk embeddings for chapter {}: {}", id, e);
+    }
+    if let Err(e) = embedding_repo::delete_by_source(pool, EmbeddingSourceType::Chapter, id).await {
+        tracing::warn!("Failed to clean summary embeddings for chapter {}: {}", id, e);
+    }
+    // 清理该章节的实体快照
+    if let Err(e) = entity_snapshot_repo::delete_by_chapter(pool, id).await {
+        tracing::warn!("Failed to clean entity snapshots for chapter {}: {}", id, e);
+    }
     chapter_repo::delete(pool, id).await.map_err(AppError::from)
 }
 

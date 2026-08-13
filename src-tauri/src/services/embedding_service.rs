@@ -3,7 +3,7 @@ use sqlx::SqlitePool;
 
 use crate::ai::provider::{EmbeddingRequest, EmbeddingResponse};
 use crate::ai::provider_factory;
-use crate::db::repo::embedding_repo;
+use crate::db::repo::{embedding_chunk_repo, embedding_repo};
 use crate::error::AppError;
 use crate::models::embedding::{EmbeddingSourceType, UpsertEmbedding};
 
@@ -115,6 +115,8 @@ pub async fn remove(
 /// 删除指定项目的全部嵌入
 pub async fn remove_by_project(pool: &SqlitePool, project_id: &str) -> Result<(), AppError> {
     embedding_repo::delete_by_project(pool, project_id).await?;
+    // 同步清理切片级向量（embedding_chunks + chunks_vec），避免孤儿数据
+    embedding_chunk_repo::delete_by_project(pool, project_id).await?;
     Ok(())
 }
 

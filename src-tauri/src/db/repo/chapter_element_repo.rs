@@ -48,3 +48,19 @@ pub async fn remove_by_chapter_and_element(
         .await?;
     Ok(())
 }
+
+/// 删除所有章节中对该元素的引用（element_type + element_id 批量）
+///
+/// 用于角色/故事线/世界观被删除时，清理 chapter_elements 表中遗留的无效引用。
+pub async fn remove_by_element(
+    pool: &SqlitePool,
+    element_type: &str,
+    element_id: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM chapter_elements WHERE element_type = ? AND element_id = ?")
+        .bind(element_type)
+        .bind(element_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}

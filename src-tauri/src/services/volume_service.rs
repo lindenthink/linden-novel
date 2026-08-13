@@ -1,6 +1,6 @@
 use sqlx::SqlitePool;
 
-use crate::db::repo::volume_repo;
+use crate::db::repo::{embedding_chunk_repo, embedding_repo, volume_repo};
 use crate::error::AppError;
 use crate::models::volume::{CreateVolume, UpdateVolume, Volume};
 
@@ -29,6 +29,14 @@ pub async fn update(pool: &SqlitePool, id: &str, input: &UpdateVolume) -> Result
 }
 
 pub async fn delete(pool: &SqlitePool, id: &str) -> Result<(), AppError> {
+    // 先清理该卷下所有章节的向量（依赖 chapters 表存在，必须在级联删除前执行）
+    // 失败仅告警：向量清理不应阻塞业务删除，残留向量可由后续 sync 重建时清理
+    if let Err(e) = embedding_chunk_repo::delete_by_volume(pool, id).await {
+        tracing::warn!("Failed to clean chunk embeddings for volume {}: {}", id, e);
+    }
+    if let Err(e) = embedding_repo::delete_chapters_by_volume(pool, id).await {
+        tracing::warn!("Failed to clean summary embeddings for volume {}: {}", id, e);
+    }
     volume_repo::delete(pool, id).await.map_err(AppError::from)
 }
 

@@ -1,7 +1,8 @@
 use sqlx::SqlitePool;
 
-use crate::db::repo::worldview_repo;
+use crate::db::repo::{chapter_element_repo, embedding_repo, worldview_repo};
 use crate::error::AppError;
+use crate::models::embedding::EmbeddingSourceType;
 use crate::models::worldview::{WorldviewEntry, CreateWorldviewEntry, UpdateWorldviewEntry};
 
 pub async fn list(pool: &SqlitePool, project_id: &str) -> Result<Vec<WorldviewEntry>, AppError> {
@@ -40,5 +41,13 @@ pub async fn update(
 }
 
 pub async fn delete(pool: &SqlitePool, id: &str) -> Result<(), AppError> {
+    // 清理关联向量（embeddings）
+    if let Err(e) = embedding_repo::delete_by_source(pool, EmbeddingSourceType::Worldview, id).await {
+        tracing::warn!("Failed to clean worldview embeddings {}: {}", id, e);
+    }
+    // 清理所有章节对该世界观条目的引用（snapshots 不支持 worldview，跳过）
+    if let Err(e) = chapter_element_repo::remove_by_element(pool, "worldview", id).await {
+        tracing::warn!("Failed to clean chapter elements for worldview {}: {}", id, e);
+    }
     worldview_repo::delete(pool, id).await.map_err(AppError::from)
 }
