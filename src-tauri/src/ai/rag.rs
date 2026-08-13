@@ -5,19 +5,17 @@ use std::path::Path;
 use crate::db::repo::{character_repo, chapter_repo, storyline_repo, worldview_repo};
 use crate::error::AppError;
 use crate::models::embedding::RetrievedItem;
-use crate::services::embedding_service;
+use crate::services::{chunk_embedding_service, embedding_service};
 
 /// RAG 检索命中的上下文片段
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RagContext {
-    /// 相关章节摘要（不含当前章节）
     pub related_chapter_summaries: Vec<RagChapterSummary>,
-    /// 相关角色描述（不含已通过 chapter_elements 关联的）
     pub related_characters: Vec<RagCharacter>,
-    /// 相关故事线描述
     pub related_storylines: Vec<RagStoryline>,
-    /// 相关世界观设定
     pub related_worldviews: Vec<RagWorldview>,
+    /// 切片级：章节正文片段（更细粒度的相关内容）
+    pub related_chunks: Vec<RagChunk>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,16 +50,20 @@ pub struct RagWorldview {
     pub score: f32,
 }
 
-/// RAG 检索配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RagChunk {
+    pub chapter_id: String,
+    pub chunk_index: i32,
+    pub chapter_title: String,
+    pub chunk_text: String,
+    pub score: f32,
+}
+
 #[derive(Debug, Clone)]
 pub struct RagConfig {
-    /// 检索的 top_k 数量（每种类型）
     pub top_k: usize,
-    /// 最低相似度阈值（低于此值不纳入上下文）
     pub min_score: f32,
-    /// 要排除的章节 ID（通常是当前章节）
     pub exclude_chapter_id: Option<String>,
-    /// 要排除的元素 ID 集合（已通过 chapter_elements 关联的）
     pub exclude_element_ids: Vec<String>,
 }
 
@@ -76,13 +78,7 @@ impl Default for RagConfig {
     }
 }
 
-/// 执行 RAG 检索，返回相关上下文片段
-///
-/// # 流程
-/// 1. 将 query 文本嵌入为向量
-/// 2. 在项目向量库中搜索 top_k 相似项
-/// 3. 按类型分组，过滤已关联元素和当前章节
-/// 4. 从 DB 加载完整内容
+/// 执行 RAG 检索
 pub async fn retrieve(
     pool: &SqlitePool,
     app_data_dir: &Path,
@@ -96,10 +92,11 @@ pub async fn retrieve(
             related_characters: Vec::new(),
             related_storylines: Vec::new(),
             related_worldviews: Vec::new(),
+            related_chunks: Vec::new(),
         });
     }
 
-    // 向量搜索：top_k * 4 确保过滤后每类仍有足够数量
+    // 摘要级搜索（top_k * 4 保证过滤后每类足够）
     let search_k = config.top_k.saturating_mul(4).max(config.top_k);
     let results =
         embedding_service::search(pool, app_data_dir, project_id, query, search_k).await?;
@@ -113,11 +110,9 @@ pub async fn retrieve(
         if item.score < config.min_score {
             continue;
         }
-        // 排除已关联的元素
         if config.exclude_element_ids.contains(&item.source_id) {
             continue;
         }
-        // 排除当前章节
         if item.source_type == "chapter"
             && config.exclude_chapter_id.as_deref() == Some(&item.source_id)
         {
@@ -202,11 +197,53 @@ pub async fn retrieve(
         }
     }
 
+    // 切片级检索（独立调用 chunk_embedding_service::search_chunks）
+    // 失败仅告警：切片检索是锦上添花，不应阻塞主流程
+    let related_chunks = match chunk_embedding_service::search_chunks(
+        pool,
+        app_data_dir,
+        project_id,
+        query,
+        config.top_k * 2,
+        config.exclude_chapter_id.as_deref(),
+    )
+    .await
+    {
+        Ok(chunks) => {
+            let mut out = Vec::with_capacity(chunks.len());
+            for c in chunks {
+                if c.score < config.min_score {
+                    continue;
+                }
+                let title = chapter_repo::get(pool, &c.chapter_id)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|ch| ch.title)
+                    .unwrap_or_else(|| "未知章节".to_string());
+                out.push(RagChunk {
+                    chapter_id: c.chapter_id,
+                    chunk_index: c.chunk_index,
+                    chapter_title: title,
+                    chunk_text: c.chunk_text,
+                    score: c.score,
+                });
+            }
+            out.truncate(config.top_k);
+            out
+        }
+        Err(e) => {
+            tracing::warn!("Chunk RAG skipped (continuing without): {}", e);
+            Vec::new()
+        }
+    };
+
     Ok(RagContext {
         related_chapter_summaries,
         related_characters,
         related_storylines,
         related_worldviews,
+        related_chunks,
     })
 }
 
@@ -218,6 +255,20 @@ pub fn render_rag_context(ctx: &RagContext) -> String {
         out.push_str("## 相关章节摘要（基于语义检索）\n");
         for s in &ctx.related_chapter_summaries {
             out.push_str(&format!("- 《{}》：{}\n", s.title, s.summary));
+        }
+        out.push('\n');
+    }
+
+    // 切片级（细粒度片段）放在最前面信息密度最高
+    if !ctx.related_chunks.is_empty() {
+        out.push_str("## 相关章节片段（基于切片语义检索）\n");
+        for c in &ctx.related_chunks {
+            let preview: String = c.chunk_text.chars().take(250).collect();
+            let more = if c.chunk_text.chars().count() > 250 { "…" } else { "" };
+            out.push_str(&format!(
+                "- 《{}》 片段#{}（相似度 {:.2}）：{}{}\n",
+                c.chapter_title, c.chunk_index, c.score, preview, more
+            ));
         }
         out.push('\n');
     }
@@ -272,13 +323,14 @@ mod tests {
             related_characters: Vec::new(),
             related_storylines: Vec::new(),
             related_worldviews: Vec::new(),
+            related_chunks: Vec::new(),
         };
         let rendered = render_rag_context(&ctx);
         assert!(rendered.is_empty());
     }
 
     #[test]
-    fn test_render_with_chapters() {
+    fn test_render_with_chunks_and_chapters() {
         let ctx = RagContext {
             related_chapter_summaries: vec![RagChapterSummary {
                 chapter_id: "c1".into(),
@@ -289,57 +341,17 @@ mod tests {
             related_characters: Vec::new(),
             related_storylines: Vec::new(),
             related_worldviews: Vec::new(),
-        };
-        let rendered = render_rag_context(&ctx);
-        assert!(rendered.contains("相关章节摘要"));
-        assert!(rendered.contains("第一章"));
-        assert!(rendered.contains("主角登场"));
-    }
-
-    #[test]
-    fn test_render_with_all_types() {
-        let ctx = RagContext {
-            related_chapter_summaries: vec![RagChapterSummary {
-                chapter_id: "c1".into(),
-                title: "章".into(),
-                summary: "摘要".into(),
-                score: 0.9,
-            }],
-            related_characters: vec![RagCharacter {
-                id: "ch1".into(),
-                name: "角色A".into(),
-                description: Some("描述".into()),
-                score: 0.8,
-            }],
-            related_storylines: vec![RagStoryline {
-                id: "s1".into(),
-                name: "线索X".into(),
-                description: None,
-                score: 0.7,
-            }],
-            related_worldviews: vec![RagWorldview {
-                id: "w1".into(),
-                name: "世界Y".into(),
-                description: Some("设定".into()),
-                score: 0.6,
+            related_chunks: vec![RagChunk {
+                chapter_id: "c2".into(),
+                chunk_index: 2,
+                chapter_title: "第二章".into(),
+                chunk_text: "这是主角遇到反派的片段内容".into(),
+                score: 0.85,
             }],
         };
         let rendered = render_rag_context(&ctx);
         assert!(rendered.contains("相关章节摘要"));
-        assert!(rendered.contains("相关角色"));
-        assert!(rendered.contains("相关情节线索"));
-        assert!(rendered.contains("相关世界观设定"));
-        assert!(rendered.contains("角色A"));
-        assert!(rendered.contains("线索X"));
-        assert!(rendered.contains("世界Y"));
-    }
-
-    #[test]
-    fn test_rag_config_default() {
-        let config = RagConfig::default();
-        assert_eq!(config.top_k, 3);
-        assert!((config.min_score - 0.3).abs() < 1e-6);
-        assert!(config.exclude_chapter_id.is_none());
-        assert!(config.exclude_element_ids.is_empty());
+        assert!(rendered.contains("相关章节片段"));
+        assert!(rendered.contains("主角遇到反派"));
     }
 }

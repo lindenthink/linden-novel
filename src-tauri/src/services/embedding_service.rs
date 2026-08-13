@@ -6,7 +6,6 @@ use crate::ai::provider_factory;
 use crate::db::repo::embedding_repo;
 use crate::error::AppError;
 use crate::models::embedding::{EmbeddingSourceType, UpsertEmbedding};
-use crate::services::{ai_api_key_service, ai_provider_service};
 
 /// 计算文本内容的 SHA-256 哈希（十六进制小写）
 fn content_hash(text: &str) -> String {
@@ -20,28 +19,6 @@ fn content_hash(text: &str) -> String {
 fn parse_source_type(s: &str) -> Result<EmbeddingSourceType, AppError> {
     s.parse::<EmbeddingSourceType>()
         .map_err(|e: String| AppError::Validation(e))
-}
-
-/// 获取默认 AI provider + API key 并创建 provider 实例
-async fn get_default_provider(
-    pool: &SqlitePool,
-    app_data_dir: &std::path::Path,
-) -> Result<Box<dyn crate::ai::provider::AiProvider>, AppError> {
-    let provider = ai_provider_service::get_default(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("No default AI provider configured".to_string()))?;
-
-    let default_key =
-        ai_api_key_service::get_default_for_provider(pool, &provider.id)
-            .await?
-            .ok_or_else(|| {
-                AppError::NotFound("No API key configured for default provider".to_string())
-            })?;
-
-    let api_key =
-        ai_api_key_service::get_decrypted(pool, app_data_dir, &default_key.id).await?;
-
-    provider_factory::create_provider(&provider, &api_key)
 }
 
 /// 为指定内容生成并存储嵌入向量
@@ -89,8 +66,8 @@ pub async fn generate_and_store(
         return Ok(false);
     }
 
-    // 获取 provider 并生成嵌入
-    let provider = get_default_provider(pool, app_data_dir).await?;
+    // 获取本地嵌入 provider 并生成嵌入
+    let provider = provider_factory::get_local_embedder(app_data_dir)?;
 
     let request = EmbeddingRequest {
         model: embedding_model.to_string(),
@@ -151,10 +128,10 @@ pub async fn search(
     query: &str,
     top_k: usize,
 ) -> Result<Vec<crate::models::embedding::RetrievedItem>, AppError> {
-    let provider = get_default_provider(pool, app_data_dir).await?;
+    let provider = provider_factory::get_local_embedder(app_data_dir)?;
 
     let request = EmbeddingRequest {
-        model: String::new(), // 使用默认 embedding model
+        model: String::new(),
         input: query.to_string(),
     };
 
@@ -281,6 +258,12 @@ pub async fn sync_project_embeddings(
                 count += 1;
             }
         }
+    }
+
+    // 5. 章节正文切片嵌入（细粒度 RAG，失败仅告警）
+    match crate::services::chunk_embedding_service::embed_project(pool, app_data_dir, project_id).await {
+        Ok(n) => tracing::info!("Chunk embeddings synced: {} slices", n),
+        Err(e) => tracing::warn!("Chunk embedding project {} skipped: {}", project_id, e),
     }
 
     Ok(count)

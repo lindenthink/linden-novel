@@ -45,11 +45,25 @@ pub fn run() {
                 ))
                 .init();
 
-            // 初始化数据库
+            // 初始化数据库（sqlite-vec 扩展静态链接，自动加载）
             let app_data_dir = app.path().app_data_dir()?.to_path_buf();
             let pool = tauri::async_runtime::block_on(db::pool::init_pool(&app_data_dir))
                 .expect("Failed to initialize database");
             app.manage(pool);
+
+            // 后台下载嵌入模型（不阻塞应用启动，下载完成后嵌入功能自动可用）
+            let embedder_dir = app_data_dir.join("embedder_model");
+            tauri::async_runtime::spawn(async move {
+                if ai::model_downloader::is_model_ready(&embedder_dir) {
+                    tracing::info!("嵌入模型已就绪，跳过下载");
+                    return;
+                }
+                tracing::info!("开始后台下载嵌入模型...");
+                match ai::model_downloader::ensure_model(&embedder_dir).await {
+                    Ok(_) => tracing::info!("嵌入模型下载完成"),
+                    Err(e) => tracing::error!("嵌入模型下载失败: {}", e),
+                }
+            });
 
             tracing::info!("Linden Novel started, DB at {:?}", app_data_dir);
             Ok(())

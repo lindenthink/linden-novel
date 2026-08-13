@@ -6,8 +6,8 @@ use tokio::sync::Mutex;
 use futures::stream::StreamExt;
 
 use crate::ai::provider::{
-    AiProvider, CompletionRequest, CompletionResponse, EmbeddingRequest, EmbeddingResponse,
-    StreamChunk, Usage,
+    AiProvider, BatchEmbeddingRequest, BatchEmbeddingResponse, CompletionRequest,
+    CompletionResponse, EmbeddingRequest, EmbeddingResponse, StreamChunk, Usage,
 };
 use crate::error::AppError;
 
@@ -107,6 +107,12 @@ struct OpenAiStreamDelta {
 struct OpenAiEmbeddingRequest {
     model: String,
     input: String,
+}
+
+#[derive(Serialize)]
+struct OpenAiBatchEmbeddingRequest {
+    model: String,
+    input: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -251,7 +257,6 @@ impl AiProvider for OpenAiProvider {
         let buffer = Arc::new(Mutex::new(String::new()));
         let stream_clone = stream;
 
-        // 将字节流转换为 SSE 解析器
         let chunk_stream = stream_clone
             .map(move |chunk_result| {
                 let buffer = buffer.clone();
@@ -262,7 +267,6 @@ impl AiProvider for OpenAiProvider {
                             let mut buf = buffer.lock().await;
                             buf.push_str(&text);
                             
-                            // 解析 SSE 数据
                             let mut chunks = Vec::new();
                             while let Some(pos) = buf.find("\n\n") {
                                 let line = buf[..pos].to_string();
@@ -377,6 +381,78 @@ impl AiProvider for OpenAiProvider {
         Ok(EmbeddingResponse {
             vector: data.embedding,
             model: openai_resp.model,
+            dim,
+        })
+    }
+
+    async fn embed_batch(
+        &self,
+        request: BatchEmbeddingRequest,
+    ) -> Result<BatchEmbeddingResponse, AppError> {
+        let url = self.build_url("/embeddings");
+        let model = if request.model.is_empty() {
+            self.embedding_model.clone()
+        } else {
+            request.model
+        };
+
+        let batch_size = 64usize;
+        let mut all_vectors = Vec::with_capacity(request.inputs.len());
+        let mut dim = 0usize;
+        let mut resp_model = String::new();
+
+        for chunk in request.inputs.chunks(batch_size) {
+            tracing::info!(
+                provider = %self.name,
+                model = %model,
+                batch = chunk.len(),
+                "AI batch embedding request"
+            );
+
+            let openai_req = OpenAiBatchEmbeddingRequest {
+                model: model.clone(),
+                input: chunk.to_vec(),
+            };
+
+            let response = self
+                .client
+                .post(&url)
+                .header("Authorization", format!("Bearer {}", self.api_key))
+                .header("Content-Type", "application/json")
+                .json(&openai_req)
+                .send()
+                .await
+                .map_err(|e| AppError::Internal(format!("Batch embed HTTP failed: {}", e)))?;
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let body = response.text().await.unwrap_or_default();
+                return Err(AppError::Internal(format!("Batch embed API {}: {}", status, body)));
+            }
+
+            let openai_resp: OpenAiEmbeddingResponse = response.json().await
+                .map_err(|e| AppError::Internal(format!("Parse batch embed failed: {}", e)))?;
+
+            resp_model = openai_resp.model;
+            let mut data = openai_resp.data;
+            data.sort_by_key(|d| d.index);
+            for d in data {
+                if dim == 0 { dim = d.embedding.len(); }
+                all_vectors.push(d.embedding);
+            }
+        }
+
+        tracing::info!(
+            provider = %self.name,
+            model = %resp_model,
+            count = all_vectors.len(),
+            dim,
+            "Batch embedding done"
+        );
+
+        Ok(BatchEmbeddingResponse {
+            vectors: all_vectors,
+            model: resp_model,
             dim,
         })
     }

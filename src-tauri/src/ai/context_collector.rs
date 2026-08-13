@@ -75,6 +75,16 @@ pub async fn collect_context_with_rag(
     app_data_dir: Option<&Path>,
     chapter_id: &str,
 ) -> Result<GenerationContext, AppError> {
+    collect_context_with_rag_and_instruction(pool, app_data_dir, chapter_id, None).await
+}
+
+/// 带用户指令的上下文收集（RAG query 包含用户指令，续写时检索更精准）
+pub async fn collect_context_with_rag_and_instruction(
+    pool: &SqlitePool,
+    app_data_dir: Option<&Path>,
+    chapter_id: &str,
+    user_instruction: Option<&str>,
+) -> Result<GenerationContext, AppError> {
     // 1. 章节信息
     let chapter = chapter_repo::get(pool, chapter_id)
         .await?
@@ -153,7 +163,8 @@ pub async fn collect_context_with_rag(
 
     // 5. RAG 检索
     let rag_context = if let Some(dir) = app_data_dir {
-        let query = build_rag_query(&chapter);
+        let query = build_rag_query(&chapter, previous_chapter_summary.as_deref(), user_instruction);
+        tracing::info!("RAG query: {:?}", query);
         if query.trim().is_empty() {
             None
         } else {
@@ -164,6 +175,14 @@ pub async fn collect_context_with_rag(
             };
             match rag::retrieve(pool, dir, &chapter.project_id, &query, &config).await {
                 Ok(rag_ctx) => {
+                    tracing::info!(
+                        "RAG results: {} chapters, {} chunks, {} characters, {} storylines, {} worldviews",
+                        rag_ctx.related_chapter_summaries.len(),
+                        rag_ctx.related_chunks.len(),
+                        rag_ctx.related_characters.len(),
+                        rag_ctx.related_storylines.len(),
+                        rag_ctx.related_worldviews.len()
+                    );
                     let rendered = rag::render_rag_context(&rag_ctx);
                     if rendered.is_empty() {
                         None
@@ -196,17 +215,43 @@ pub async fn collect_context_with_rag(
 }
 
 /// 构建 RAG 检索的 query
-fn build_rag_query(chapter: &Chapter) -> String {
-    let mut q = chapter.title.clone();
+///
+/// 续写新章节时，当前章节内容/摘要为空，仅靠标题语义信息不足。
+/// 因此将前一章摘要 + 用户续写指令纳入 query，提供更丰富的语义线索。
+fn build_rag_query(
+    chapter: &Chapter,
+    prev_summary: Option<&str>,
+    user_instruction: Option<&str>,
+) -> String {
+    let mut parts: Vec<String> = Vec::new();
+
+    // 当前章节标题
+    if !chapter.title.trim().is_empty() {
+        parts.push(chapter.title.trim().to_string());
+    }
+
+    // 当前章节摘要（续写时通常为空）
     if let Some(summary) = &chapter.summary {
         if !summary.trim().is_empty() {
-            if !q.is_empty() {
-                q.push(' ');
-            }
-            q.push_str(summary);
+            parts.push(summary.trim().to_string());
         }
     }
-    q
+
+    // 前一章摘要（续写时最重要的语义来源）
+    if let Some(prev) = prev_summary {
+        if !prev.trim().is_empty() {
+            parts.push(prev.trim().to_string());
+        }
+    }
+
+    // 用户续写指令
+    if let Some(instruction) = user_instruction {
+        if !instruction.trim().is_empty() {
+            parts.push(instruction.trim().to_string());
+        }
+    }
+
+    parts.join(" ")
 }
 
 #[cfg(test)]
@@ -231,7 +276,7 @@ mod tests {
     #[test]
     fn test_build_rag_query_with_summary() {
         let ch = make_chapter("第三章 风暴", Some("主角遭遇海上风暴"));
-        let q = build_rag_query(&ch);
+        let q = build_rag_query(&ch, None, None);
         assert!(q.contains("第三章 风暴"));
         assert!(q.contains("主角遭遇海上风暴"));
     }
@@ -239,14 +284,27 @@ mod tests {
     #[test]
     fn test_build_rag_query_without_summary() {
         let ch = make_chapter("第一章", None);
-        let q = build_rag_query(&ch);
+        let q = build_rag_query(&ch, None, None);
         assert_eq!(q, "第一章");
     }
 
     #[test]
     fn test_build_rag_query_empty_summary() {
         let ch = make_chapter("第二章", Some("   "));
-        let q = build_rag_query(&ch);
+        let q = build_rag_query(&ch, None, None);
         assert_eq!(q, "第二章");
+    }
+
+    #[test]
+    fn test_build_rag_query_with_prev_and_instruction() {
+        let ch = make_chapter("第八章", None);
+        let q = build_rag_query(
+            &ch,
+            Some("小强携带短刀赶路"),
+            Some("续写山中遭遇情节"),
+        );
+        assert!(q.contains("第八章"));
+        assert!(q.contains("小强携带短刀赶路"));
+        assert!(q.contains("续写山中遭遇情节"));
     }
 }

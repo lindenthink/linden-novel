@@ -5,7 +5,6 @@ use crate::models::embedding::{
     EmbeddingRow, EmbeddingSourceType, RetrievedItem, UpsertEmbedding,
 };
 
-/// 将 f32 切片序列化为 little-endian bytes
 fn encode_embedding(values: &[f32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(values.len() * 4);
     for v in values {
@@ -14,7 +13,6 @@ fn encode_embedding(values: &[f32]) -> Vec<u8> {
     bytes
 }
 
-/// 将 little-endian bytes 反序列化为 f32 向量
 fn decode_embedding(bytes: &[u8], dim: usize) -> Vec<f32> {
     let mut out = Vec::with_capacity(dim);
     for i in 0..dim {
@@ -29,7 +27,6 @@ fn decode_embedding(bytes: &[u8], dim: usize) -> Vec<f32> {
     out
 }
 
-/// 计算两个向量的余弦相似度
 fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     let n = a.len().min(b.len());
     if n == 0 {
@@ -51,7 +48,9 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     }
 }
 
-/// 插入或更新嵌入（UPSERT）
+/// UPSERT：同时写入 embeddings 表（权威）+ 同步到 vec0 索引（加速）
+///
+/// vec0 同步失败仅告警不阻塞：索引损坏可从 embeddings 重建
 pub async fn upsert(pool: &SqlitePool, input: &UpsertEmbedding) -> Result<(), sqlx::Error> {
     let id = uuid::Uuid::new_v4().to_string();
     let ts = pool::now();
@@ -80,10 +79,43 @@ pub async fn upsert(pool: &SqlitePool, input: &UpsertEmbedding) -> Result<(), sq
     .bind(&ts)
     .execute(pool)
     .await?;
+
+    // 尝试同步 vec0（维度不匹配时静默失败，检索回退内存）
+    match sync_to_vec0(pool, input, &bytes).await {
+        Ok(_) => {}
+        Err(e) => tracing::warn!("embeddings_vec sync skipped: {}", e),
+    }
+
     Ok(())
 }
 
-/// 获取单个嵌入（含反序列化后的向量）
+/// 将条目同步到 vec0 虚拟表（先删后插，vec0 不支持 UPSERT）
+async fn sync_to_vec0(
+    pool: &SqlitePool,
+    input: &UpsertEmbedding,
+    bytes: &[u8],
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "DELETE FROM embeddings_vec WHERE project_id = ? AND source_type = ? AND source_id = ?",
+    )
+    .bind(&input.project_id)
+    .bind(input.source_type.as_str())
+    .bind(&input.source_id)
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        "INSERT INTO embeddings_vec (project_id, source_type, source_id, embedding) VALUES (?, ?, ?, ?)",
+    )
+    .bind(&input.project_id)
+    .bind(input.source_type.as_str())
+    .bind(&input.source_id)
+    .bind(bytes)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 pub async fn get_by_source(
     pool: &SqlitePool,
     source_type: EmbeddingSourceType,
@@ -104,7 +136,6 @@ pub async fn get_by_source(
     }))
 }
 
-/// 列出某项目下所有嵌入（用于内存搜索）
 pub async fn list_by_project(
     pool: &SqlitePool,
     project_id: &str,
@@ -126,7 +157,7 @@ pub async fn list_by_project(
         .collect())
 }
 
-/// 按来源删除
+/// 双表同步删除
 pub async fn delete_by_source(
     pool: &SqlitePool,
     source_type: EmbeddingSourceType,
@@ -137,23 +168,83 @@ pub async fn delete_by_source(
         .bind(source_id)
         .execute(pool)
         .await?;
+
+    // vec0 删除静默失败
+    let _ = sqlx::query(
+        "DELETE FROM embeddings_vec WHERE source_type = ? AND source_id = ?",
+    )
+    .bind(source_type.as_str())
+    .bind(source_id)
+    .execute(pool)
+    .await;
+
     Ok(())
 }
 
-/// 按项目删除全部（项目删除时级联）
+/// 双表同步删除项目级
 pub async fn delete_by_project(pool: &SqlitePool, project_id: &str) -> Result<(), sqlx::Error> {
     sqlx::query("DELETE FROM embeddings WHERE project_id = ?")
         .bind(project_id)
         .execute(pool)
         .await?;
+
+    let _ = sqlx::query("DELETE FROM embeddings_vec WHERE project_id = ?")
+        .bind(project_id)
+        .execute(pool)
+        .await;
+
     Ok(())
 }
 
-/// 向量搜索：返回与 query_embedding 最相似的 top_k 个条目
-///
-/// 实现：加载项目全部嵌入到内存，逐个计算余弦相似度，排序取 top_k。
-/// 适用于摘要级粒度（每项目约 100-250 向量），无需 sqlite-vec 虚拟表。
+/// 向量搜索：优先 vec0 加速，失败回退内存余弦
 pub async fn search(
+    pool: &SqlitePool,
+    project_id: &str,
+    query_embedding: &[f32],
+    top_k: usize,
+) -> Result<Vec<RetrievedItem>, sqlx::Error> {
+    // 优先 vec0 加速，失败回退内存余弦
+    if let Ok(results) = search_via_vec0(pool, project_id, query_embedding, top_k).await {
+        return Ok(results);
+    }
+    search_via_memory(pool, project_id, query_embedding, top_k).await
+}
+
+/// vec0 KNN：MATCH + k 参数，返回余弦相似度 score（distance → 1 - distance）
+async fn search_via_vec0(
+    pool: &SqlitePool,
+    project_id: &str,
+    query_embedding: &[f32],
+    top_k: usize,
+) -> Result<Vec<RetrievedItem>, sqlx::Error> {
+    let query_bytes = encode_embedding(query_embedding);
+
+    let rows: Vec<(String, String, f32)> = sqlx::query_as(
+        "SELECT source_type, source_id, distance
+         FROM embeddings_vec
+         WHERE project_id = ?
+           AND embedding MATCH ?
+           AND k = ?
+         ORDER BY distance",
+    )
+    .bind(project_id)
+    .bind(&query_bytes)
+    .bind(top_k as i64)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(st, sid, dist)| RetrievedItem {
+            source_type: st,
+            source_id: sid,
+            score: 1.0 - dist,
+        })
+        .collect())
+}
+
+/// 内存余弦回退
+async fn search_via_memory(
     pool: &SqlitePool,
     project_id: &str,
     query_embedding: &[f32],
@@ -173,7 +264,6 @@ pub async fn search(
         })
         .collect();
 
-    // 按分数降序，取 top_k
     scored.sort_by(|a, b| {
         b.score
             .partial_cmp(&a.score)

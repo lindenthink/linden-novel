@@ -1,7 +1,10 @@
 pub mod provider;
 pub mod openai_provider;
+pub mod local_provider;
 pub mod provider_factory;
+pub mod model_downloader;
 pub mod sse;
 pub mod context_collector;
 pub mod generation_prompts;
 pub mod rag;
+pub mod chunker;

@@ -38,6 +38,7 @@ pub struct StreamChunk {
     pub done: bool,
 }
 
+/// 单条嵌入请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmbeddingRequest {
     pub model: String,
@@ -51,23 +52,57 @@ pub struct EmbeddingResponse {
     pub dim: usize,
 }
 
+/// 批量嵌入请求（一次 API 调用生成 N 条向量）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchEmbeddingRequest {
+    pub model: String,
+    pub inputs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchEmbeddingResponse {
+    pub vectors: Vec<Vec<f32>>,
+    pub model: String,
+    pub dim: usize,
+}
+
 #[async_trait]
 pub trait AiProvider: Send + Sync {
-    /// 非流式完成请求
     async fn complete(&self, request: CompletionRequest) -> Result<CompletionResponse, AppError>;
-    
-    /// 流式完成请求，返回 chunk 迭代器
+
     async fn complete_stream(
         &self,
         request: CompletionRequest,
     ) -> Result<Box<dyn Iterator<Item = Result<StreamChunk, AppError>> + Send>, AppError>;
-    
-    /// 生成文本嵌入向量
+
+    /// 单条嵌入
     async fn embed(&self, request: EmbeddingRequest) -> Result<EmbeddingResponse, AppError>;
-    
-    /// 获取 provider 名称
+
+    /// 批量嵌入（默认实现：逐条调用 embed）
+    ///
+    /// 子类可覆盖为 HTTP 原生批量或 rayon 并行加速
+    async fn embed_batch(
+        &self,
+        request: BatchEmbeddingRequest,
+    ) -> Result<BatchEmbeddingResponse, AppError> {
+        let mut vectors = Vec::with_capacity(request.inputs.len());
+        let mut dim = 0usize;
+        let mut model = String::new();
+        for input in request.inputs {
+            let resp = self
+                .embed(EmbeddingRequest {
+                    model: request.model.clone(),
+                    input,
+                })
+                .await?;
+            dim = resp.dim;
+            model = resp.model;
+            vectors.push(resp.vector);
+        }
+        Ok(BatchEmbeddingResponse { vectors, model, dim })
+    }
+
     fn name(&self) -> &str;
-    
-    /// 获取支持的模型列表
+
     fn models(&self) -> Vec<String>;
 }
