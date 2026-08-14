@@ -1,5 +1,13 @@
 /* Global styles for linden-novel */
 
+/* --- Root height lock — prevents browser-level scrollbar --- */
+html, body, #app {
+  height: 100%;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
 /* --- Scrollbar --- */
 /* WebKit browsers (Chrome, Edge, Safari) */
 ::-webkit-scrollbar {
