@@ -47,6 +47,9 @@ pub fn run() {
                 ))
                 .init();
 
+            // 清理过期日志文件（按文件修改时间判断）
+            cleanup_old_logs(&log_dir);
+
             // 初始化数据库（sqlite-vec 扩展静态链接，自动加载）
             let app_data_dir = app.path().app_data_dir()?.to_path_buf();
             let pool = tauri::async_runtime::block_on(db::pool::init_pool(&app_data_dir))
@@ -198,4 +201,52 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// 清理过期日志文件
+///
+/// 保留天数通过环境变量 `LINDEN_LOG_RETENTION_DAYS` 配置，默认 7 天。
+/// 按文件修改时间判断，仅删除 `linden.log` 前缀的轮转文件。
+fn cleanup_old_logs(log_dir: &std::path::Path) {
+    let retention_days = std::env::var("LINDEN_LOG_RETENTION_DAYS")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(7);
+
+    let cutoff = std::time::SystemTime::now()
+        - std::time::Duration::from_secs(retention_days * 24 * 3600);
+
+    let entries = match std::fs::read_dir(log_dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+
+    let mut removed = 0u32;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = match path.file_name().and_then(|n| n.to_str()) {
+            Some(n) => n,
+            None => continue,
+        };
+        if !name.starts_with("linden.log") {
+            continue;
+        }
+        if let Ok(metadata) = entry.metadata() {
+            if let Ok(modified) = metadata.modified() {
+                if modified < cutoff {
+                    if std::fs::remove_file(&path).is_ok() {
+                        removed += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    if removed > 0 {
+        tracing::info!(
+            "Cleaned up {} log files older than {} days",
+            removed,
+            retention_days
+        );
+    }
 }
