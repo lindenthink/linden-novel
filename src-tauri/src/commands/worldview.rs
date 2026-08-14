@@ -1,5 +1,5 @@
 use sqlx::SqlitePool;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 use crate::error::AppError;
 use crate::models::worldview::{WorldviewEntry, CreateWorldviewEntry, UpdateWorldviewEntry};
@@ -23,19 +23,27 @@ pub async fn get_worldview(
 
 #[tauri::command]
 pub async fn create_worldview(
+    app: AppHandle,
     pool: State<'_, SqlitePool>,
     input: CreateWorldviewEntry,
 ) -> Result<WorldviewEntry, AppError> {
-    worldview_service::create(&pool, &input).await
+    let app_data_dir = app.path().app_data_dir().map_err(|e| {
+        AppError::Internal(format!("Failed to get app data dir: {}", e))
+    })?;
+    worldview_service::create(&pool, &app_data_dir, &input).await
 }
 
 #[tauri::command]
 pub async fn update_worldview(
+    app: AppHandle,
     pool: State<'_, SqlitePool>,
     id: String,
     input: UpdateWorldviewEntry,
 ) -> Result<WorldviewEntry, AppError> {
-    worldview_service::update(&pool, &id, &input).await
+    let app_data_dir = app.path().app_data_dir().map_err(|e| {
+        AppError::Internal(format!("Failed to get app data dir: {}", e))
+    })?;
+    worldview_service::update(&pool, &app_data_dir, &id, &input).await
 }
 
 #[tauri::command]
