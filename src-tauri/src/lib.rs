@@ -64,6 +64,18 @@ pub fn run() {
             ) {
                 tracing::error!("Failed to reset running tasks during startup: {}", e);
             }
+
+            // 清理 3 天前的已完成任务，控制任务中心数据量
+            match tauri::async_runtime::block_on(
+                crate::db::repo::async_task_repo::delete_old_completed(&pool, 3)
+            ) {
+                Ok(n) => {
+                    if n > 0 {
+                        tracing::info!("Cleaned up {} old completed tasks (>3 days)", n);
+                    }
+                }
+                Err(e) => tracing::warn!("Failed to clean up old tasks: {}", e),
+            }
             
             // 存储 TaskManager 到 State
             app.manage(task_manager_state);

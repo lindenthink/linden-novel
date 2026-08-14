@@ -220,3 +220,27 @@ pub async fn reset_running_to_failed(pool: &SqlitePool) -> Result<(), AppError> 
     .map_err(AppError::from)?;
     Ok(())
 }
+
+/// 删除超过指定天数的已完成任务（completed/failed/cancelled）
+///
+/// 保留所有 pending/running 任务。时间阈值基于本地时间计算，
+/// 与 `created_at` 的存储格式（`pool::now()` 本地时间）保持一致。
+pub async fn delete_old_completed(
+    pool: &SqlitePool,
+    days: i64,
+) -> Result<u64, AppError> {
+    let threshold = chrono::Local::now() - chrono::Duration::days(days);
+    let threshold_str = threshold.format("%Y-%m-%d %H:%M:%S").to_string();
+
+    let result = sqlx::query(
+        "DELETE FROM async_tasks 
+         WHERE status IN ('completed', 'failed', 'cancelled') 
+           AND created_at < ?"
+    )
+    .bind(&threshold_str)
+    .execute(pool)
+    .await
+    .map_err(AppError::from)?;
+
+    Ok(result.rows_affected())
+}
