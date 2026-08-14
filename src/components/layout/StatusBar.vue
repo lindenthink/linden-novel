@@ -86,8 +86,10 @@ function openTaskCenter() {
             :offset="[-2, 2]"
           >
             <button
-              class="task-center-btn flex items-center justify-center w-7 h-7 rounded-lg text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-300"
-              :class="{ 'has-active': activeCount > 0 }"
+              class="task-center-btn flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-300"
+              :class="activeCount > 0
+                ? 'text-blue-500 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-500 hover:bg-blue-500/10 dark:hover:bg-blue-400/15'
+                : 'text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-500 hover:bg-emerald-500/10 dark:hover:bg-emerald-400/15'"
               @click="openTaskCenter"
               aria-label="任务中心"
             >
@@ -152,24 +154,6 @@ function openTaskCenter() {
   outline: none;
   box-shadow: none;
   border: none;
-}
-
-.task-center-btn.has-active {
-  color: #3b82f6;
-}
-
-.task-center-btn.has-active:hover {
-  color: #2563eb;
-  background: rgba(59, 130, 246, 0.12);
-}
-
-html.dark .task-center-btn.has-active {
-  color: #60a5fa;
-}
-
-html.dark .task-center-btn.has-active:hover {
-  color: #3b82f6;
-  background: rgba(96, 165, 250, 0.15);
 }
 
 .task-center-btn svg {
