@@ -1,12 +1,13 @@
 use sqlx::SqlitePool;
 use std::path::Path;
 
+use crate::ai::chunker::ChunkConfig;
 use crate::ai::provider::{CompletionRequest, Message};
 use crate::ai::provider_factory;
 use crate::db::repo::chapter_repo;
 use crate::error::AppError;
 use crate::models::chapter::Chapter;
-use crate::services::{ai_api_key_service, ai_provider_service, embedding_service};
+use crate::services::{ai_api_key_service, ai_provider_service, chunk_embedding_service, embedding_service};
 
 /// 摘要生成的目标长度（中文字符）
 const SUMMARY_TARGET_CHARS: usize = 200;
@@ -156,24 +157,57 @@ pub async fn generate_chapter_summary(
         summary.chars().count()
     );
 
-    // 8. 触发嵌入生成
-    // if let Err(e) = embedding_service::generate_and_store(
-    //     pool,
-    //     app_data_dir,
-    //     &chapter.project_id,
-    //     "chapter",
-    //     chapter_id,
-    //     &summary,
-    //     "",
-    // )
-    // .await
-    // {
-    //     tracing::warn!(
-    //         "Failed to generate embedding for chapter summary {}: {} (summary still saved)",
-    //         chapter_id,
-    //         e
-    //     );
-    // }
+    // 8. 异步触发嵌入生成（摘要级 + 切片级），不阻塞摘要返回
+    //
+    // 嵌入可能耗时数秒（切片级尤其慢），将其放入后台任务，让用户立即获得摘要结果。
+    // 失败仅告警：嵌入是 RAG 的增强，不影响摘要本身的正确性。
+    // hash 检测会自动跳过无变化内容，批量场景下重复调用零成本。
+    let pool_bg = pool.clone();
+    let app_data_dir_bg = app_data_dir.to_path_buf();
+    let project_id_bg = chapter.project_id.clone();
+    let chapter_id_bg = chapter_id.to_string();
+    let summary_bg = summary.clone();
+    let content_bg = content.clone();
+    tokio::spawn(async move {
+        // 摘要级嵌入
+        if let Err(e) = embedding_service::generate_and_store(
+            &pool_bg,
+            &app_data_dir_bg,
+            &project_id_bg,
+            "chapter",
+            &chapter_id_bg,
+            &summary_bg,
+            "",
+        )
+        .await
+        {
+            tracing::warn!(
+                "Background embedding failed for chapter summary {}: {}",
+                chapter_id_bg,
+                e
+            );
+            return;
+        }
+        // 切片级嵌入：正文可能有变更，重建该章节的切片向量
+        if let Err(e) = chunk_embedding_service::embed_chapter(
+            &pool_bg,
+            &app_data_dir_bg,
+            &chapter_id_bg,
+            &project_id_bg,
+            &content_bg,
+            &ChunkConfig::default(),
+        )
+        .await
+        {
+            tracing::warn!(
+                "Background chunk embedding failed for chapter {}: {}",
+                chapter_id_bg,
+                e
+            );
+            return;
+        }
+        tracing::info!("Background embedding completed for chapter {}", chapter_id_bg);
+    });
 
     Ok(summary)
 }

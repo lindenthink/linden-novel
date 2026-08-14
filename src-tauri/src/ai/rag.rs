@@ -215,16 +215,21 @@ pub async fn retrieve(
                 if c.score < config.min_score {
                     continue;
                 }
-                let title = chapter_repo::get(pool, &c.chapter_id)
-                    .await
-                    .ok()
-                    .flatten()
-                    .map(|ch| ch.title)
-                    .unwrap_or_else(|| "未知章节".to_string());
+                // 跳过已不存在的章节（孤儿向量），避免已删内容泄漏进 prompt
+                let chapter = match chapter_repo::get(pool, &c.chapter_id).await {
+                    Ok(Some(ch)) => ch,
+                    _ => {
+                        tracing::warn!(
+                            "Skipping orphan chunk: chapter {} not found",
+                            c.chapter_id
+                        );
+                        continue;
+                    }
+                };
                 out.push(RagChunk {
                     chapter_id: c.chapter_id,
                     chunk_index: c.chunk_index,
-                    chapter_title: title,
+                    chapter_title: chapter.title,
                     chunk_text: c.chunk_text,
                     score: c.score,
                 });
