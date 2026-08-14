@@ -212,15 +212,28 @@ pub async fn generate_chapter_summary(
     Ok(summary)
 }
 
+/// 批量摘要生成统计结果
+#[derive(Debug, Default, serde::Serialize)]
+pub struct BatchSummaryResult {
+    pub success_count: usize,
+    pub failed_count: usize,
+    pub skipped_count: usize,
+    pub total: usize,
+}
+
 /// 批量为项目内所有无摘要章节生成摘要
 ///
-/// # 返回
-/// (成功数, 失败数)
-pub async fn generate_all_summaries(
+/// # 参数
+/// - `progress`: 进度回调 `(current, total)`，current 为已处理的章节数（含跳过），total 为待处理总数
+pub async fn generate_all_summaries<F>(
     pool: &SqlitePool,
     app_data_dir: &Path,
     project_id: &str,
-) -> Result<(usize, usize), AppError> {
+    mut progress: F,
+) -> Result<BatchSummaryResult, AppError>
+where
+    F: FnMut(usize, usize) + Send,
+{
     let chapters: Vec<Chapter> = sqlx::query_as(
         "SELECT * FROM chapters WHERE project_id = ? ORDER BY order_index",
     )
@@ -229,38 +242,58 @@ pub async fn generate_all_summaries(
     .await
     .map_err(AppError::from)?;
 
-    let mut success = 0usize;
-    let mut failed = 0usize;
+    // 筛出需要生成摘要的章节
+    let need_summary: Vec<&Chapter> = chapters
+        .iter()
+        .filter(|c| {
+            c.summary.as_ref().map(|s| s.trim().is_empty()).unwrap_or(true)
+        })
+        .collect();
 
-    for chapter in &chapters {
-        // 跳过已有摘要的
-        if let Some(s) = &chapter.summary {
-            if !s.trim().is_empty() {
-                continue;
-            }
-        }
+    let total = need_summary.len();
+    let mut result = BatchSummaryResult {
+        total,
+        ..Default::default()
+    };
+    let skipped = chapters.len() - total;
+    result.skipped_count = skipped;
 
+    progress(0, total);
+
+    for (i, chapter) in need_summary.iter().enumerate() {
         match generate_chapter_summary(pool, app_data_dir, &chapter.id, false).await {
-            Ok(_) => success += 1,
+            Ok(_) => result.success_count += 1,
             Err(e) => {
                 tracing::warn!(
                     "Failed to generate summary for chapter {}: {}",
                     chapter.id,
                     e
                 );
-                failed += 1;
+                result.failed_count += 1;
             }
         }
+        progress(i + 1, total);
     }
 
     tracing::info!(
-        "Batch summary generation: {} succeeded, {} failed (project {})",
-        success,
-        failed,
+        "Batch summary generation: {} succeeded, {} failed, {} skipped (project {})",
+        result.success_count,
+        result.failed_count,
+        result.skipped_count,
         project_id
     );
 
-    Ok((success, failed))
+    Ok(result)
+}
+
+/// 向后兼容的简化封装（无进度回调场景）
+pub async fn generate_all_summaries_silent(
+    pool: &SqlitePool,
+    app_data_dir: &Path,
+    project_id: &str,
+) -> Result<(usize, usize), AppError> {
+    let r = generate_all_summaries(pool, app_data_dir, project_id, |_, _| {}).await?;
+    Ok((r.success_count, r.failed_count))
 }
 
 /// 获取章节摘要（直接读 DB）

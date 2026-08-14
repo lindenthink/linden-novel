@@ -118,7 +118,7 @@ pub async fn batch_generate_summaries(
     })?;
 
     let (success_count, failed_count) =
-        summary_service::generate_all_summaries(pool.inner(), &app_data_dir, &request.project_id).await?;
+        summary_service::generate_all_summaries_silent(pool.inner(), &app_data_dir, &request.project_id).await?;
 
     Ok(BatchSummaryResponse {
         project_id: request.project_id,
@@ -139,7 +139,7 @@ pub async fn sync_project_embeddings(
     })?;
 
     let embedded_count =
-        embedding_service::sync_project_embeddings(pool.inner(), &app_data_dir, &request.project_id).await?;
+        embedding_service::sync_project_embeddings_silent(pool.inner(), &app_data_dir, &request.project_id).await?;
 
     Ok(SyncEmbeddingsResponse {
         project_id: request.project_id,

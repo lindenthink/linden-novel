@@ -13,3 +13,4 @@ pub mod ai_complete;
 pub mod ai_generation;
 pub mod long_context;
 pub mod entity_snapshot;
+pub mod tasks;

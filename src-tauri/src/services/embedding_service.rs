@@ -143,16 +143,37 @@ pub async fn search(
     Ok(results)
 }
 
+/// 批量嵌入处理的统计结果
+#[derive(Debug, Default, serde::Serialize)]
+pub struct SyncEmbeddingsResult {
+    pub chapter_summary_embedded: usize,
+    pub character_embedded: usize,
+    pub storyline_embedded: usize,
+    pub worldview_embedded: usize,
+    pub chunk_embedded: usize,
+    pub total_embedded: usize,
+}
+
 /// 为项目的所有章节摘要 + 元素描述批量生成嵌入
 ///
-/// # 触发时机
-/// 章节摘要生成后、元素创建/更新后调用
-pub async fn sync_project_embeddings(
+/// # 参数
+/// - `progress`: 进度回调 `(current, total)`，current 为已完成的"步骤"数，total 为总步骤数
+///   - 步骤定义：5 个大类，每个大类处理完所有条目算 1 步（摘要/角色/故事线/世界观/切片）
+///   - 即 total 恒等于 5，每个步骤完成时 current+1
+pub async fn sync_project_embeddings<F>(
     pool: &SqlitePool,
     app_data_dir: &std::path::Path,
     project_id: &str,
-) -> Result<usize, AppError> {
-    let mut count = 0usize;
+    mut progress: F,
+) -> Result<SyncEmbeddingsResult, AppError>
+where
+    F: FnMut(usize, usize) + Send,
+{
+    let mut result = SyncEmbeddingsResult::default();
+    let total_steps = 5usize;
+
+    // 0/5 初始
+    progress(0, total_steps);
 
     // 1. 章节摘要
     let chapters = sqlx::query_as::<_, crate::models::chapter::Chapter>(
@@ -176,10 +197,11 @@ pub async fn sync_project_embeddings(
             )
             .await?
             {
-                count += 1;
+                result.chapter_summary_embedded += 1;
             }
         }
     }
+    progress(1, total_steps);
 
     // 2. 角色描述
     let characters = sqlx::query_as::<_, crate::models::character::Character>(
@@ -203,10 +225,11 @@ pub async fn sync_project_embeddings(
             )
             .await?
             {
-                count += 1;
+                result.character_embedded += 1;
             }
         }
     }
+    progress(2, total_steps);
 
     // 3. 故事线描述
     let storylines = sqlx::query_as::<_, crate::models::storyline::Storyline>(
@@ -230,10 +253,11 @@ pub async fn sync_project_embeddings(
             )
             .await?
             {
-                count += 1;
+                result.storyline_embedded += 1;
             }
         }
     }
+    progress(3, total_steps);
 
     // 4. 世界观描述
     let worldviews = sqlx::query_as::<_, crate::models::worldview::WorldviewEntry>(
@@ -257,18 +281,41 @@ pub async fn sync_project_embeddings(
             )
             .await?
             {
-                count += 1;
+                result.worldview_embedded += 1;
             }
         }
     }
+    progress(4, total_steps);
 
     // 5. 章节正文切片嵌入（细粒度 RAG，失败仅告警）
     match crate::services::chunk_embedding_service::embed_project(pool, app_data_dir, project_id).await {
-        Ok(n) => tracing::info!("Chunk embeddings synced: {} slices", n),
-        Err(e) => tracing::warn!("Chunk embedding project {} skipped: {}", project_id, e),
+        Ok(n) => {
+            result.chunk_embedded = n;
+            tracing::info!("Chunk embeddings synced: {} slices", n);
+        }
+        Err(e) => {
+            tracing::warn!("Chunk embedding project {} skipped: {}", project_id, e);
+        }
     }
 
-    Ok(count)
+    result.total_embedded = result.chapter_summary_embedded
+        + result.character_embedded
+        + result.storyline_embedded
+        + result.worldview_embedded
+        + result.chunk_embedded;
+
+    progress(5, total_steps);
+    Ok(result)
+}
+
+/// 向后兼容的简化封装（无进度回调场景）
+pub async fn sync_project_embeddings_silent(
+    pool: &SqlitePool,
+    app_data_dir: &std::path::Path,
+    project_id: &str,
+) -> Result<usize, AppError> {
+    let r = sync_project_embeddings(pool, app_data_dir, project_id, |_, _| {}).await?;
+    Ok(r.total_embedded)
 }
 
 #[cfg(test)]

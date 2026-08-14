@@ -14,3 +14,4 @@ pub mod embedding_service;
 pub mod chunk_embedding_service;
 pub mod summary_service;
 pub mod entity_snapshot_service;
+pub mod task_manager;

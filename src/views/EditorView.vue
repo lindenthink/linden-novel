@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { save } from "@tauri-apps/plugin-dialog";
 import { NButton, NSpace, NDropdown, NEmpty, useMessage, useDialog } from "naive-ui";
@@ -7,6 +7,7 @@ import { useProjectStore } from "../stores/project";
 import { useChapterStore } from "../stores/chapter";
 import { useLongContext } from "../composables/useLongContext";
 import { useEditorUI } from "../composables/useEditorUI";
+import { useTaskCenter } from "../composables/useTaskCenter";
 import { exportProject } from "../api/io";
 import ThreeColumnLayout from "../components/layout/ThreeColumnLayout.vue";
 import ChapterTree from "../components/layout/ChapterTree.vue";
@@ -29,6 +30,7 @@ const {
   handleBatchSummaries,
   handleSyncEmbeddings,
 } = useLongContext();
+const { init: initTaskCenter, cleanup: cleanupTaskCenter } = useTaskCenter();
 
 const projectId = route.params.id as string;
 
@@ -45,6 +47,8 @@ async function loadProject() {
     if (lastChapterId && chapterStore.chapters.some((c) => c.id === lastChapterId)) {
       await chapterStore.setActiveChapter(lastChapterId);
     }
+    // 初始化任务中心：拉取历史任务 + 启动事件监听
+    await initTaskCenter(projectId);
   } catch (e: any) {
     message.error(e?.message || "加载项目失败");
     router.replace({ name: "home" });
@@ -153,8 +157,8 @@ async function batchGenerateAllSummaries() {
     negativeText: "取消",
     onPositiveClick: async () => {
       try {
-        const res = await handleBatchSummaries(projectId);
-        message.success(`批量完成：成功 ${res.success_count}，失败 ${res.failed_count}`);
+        await handleBatchSummaries(projectId);
+        message.success("批量摘要任务已提交，请在任务中心查看进度");
       } catch (e: any) {
         message.error(e?.toString() || "批量摘要生成失败");
       }
@@ -164,8 +168,8 @@ async function batchGenerateAllSummaries() {
 
 async function syncAllEmbeddings() {
   try {
-    const res = await handleSyncEmbeddings(projectId);
-    message.success(`嵌入同步完成：${res.embedded_count} 个条目`);
+    await handleSyncEmbeddings(projectId);
+    message.success("嵌入同步任务已提交，请在任务中心查看进度");
   } catch (e: any) {
     message.error(e?.toString() || "嵌入同步失败");
   }
@@ -205,6 +209,11 @@ function handleLongContextSelect(key: string) {
 }
 
 onMounted(loadProject);
+
+onUnmounted(() => {
+  // 离开编辑器时清理任务中心监听
+  cleanupTaskCenter();
+});
 
 // 路由变化时重新加载
 watch(() => route.params.id, (newId) => {

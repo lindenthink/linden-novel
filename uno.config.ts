@@ -61,6 +61,9 @@ export default defineConfig({
     "i-carbon-settings",
     "i-carbon-sun",
     "i-carbon-moon",
+    // 任务中心
+    "i-carbon-task-progress",
+    "i-carbon-renew",
   ],
   theme: {
     colors: {

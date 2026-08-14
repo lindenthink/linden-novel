@@ -411,12 +411,27 @@ async fn compute_changes(
     }
 }
 
+/// 批量快照生成统计结果
+#[derive(Debug, Default, serde::Serialize)]
+pub struct BatchSnapshotResult {
+    pub success_count: usize,
+    pub failed_count: usize,
+    pub total_chapters: usize,
+}
+
 /// 批量为项目内所有章节生成实体快照
-pub async fn generate_all_snapshots(
+///
+/// # 参数
+/// - `progress`: 进度回调 `(current, total)`，current 为已处理的章节数，total 为总章节数
+pub async fn generate_all_snapshots<F>(
     pool: &SqlitePool,
     app_data_dir: &Path,
     project_id: &str,
-) -> Result<(usize, usize), AppError> {
+    mut progress: F,
+) -> Result<BatchSnapshotResult, AppError>
+where
+    F: FnMut(usize, usize) + Send,
+{
     let chapters: Vec<Chapter> = sqlx::query_as(
         "SELECT * FROM chapters WHERE project_id = ? ORDER BY order_index",
     )
@@ -425,14 +440,19 @@ pub async fn generate_all_snapshots(
     .await
     .map_err(AppError::from)?;
 
-    let mut total_success = 0usize;
-    let mut total_failed = 0usize;
+    let total = chapters.len();
+    let mut result = BatchSnapshotResult {
+        total_chapters: total,
+        ..Default::default()
+    };
 
-    for chapter in &chapters {
+    progress(0, total);
+
+    for (i, chapter) in chapters.iter().enumerate() {
         match generate_chapter_snapshots(pool, app_data_dir, &chapter.id).await {
             Ok((s, f)) => {
-                total_success += s;
-                total_failed += f;
+                result.success_count += s;
+                result.failed_count += f;
             }
             Err(e) => {
                 tracing::warn!(
@@ -440,12 +460,23 @@ pub async fn generate_all_snapshots(
                     chapter.id,
                     e
                 );
-                total_failed += 1;
+                result.failed_count += 1;
             }
         }
+        progress(i + 1, total);
     }
 
-    Ok((total_success, total_failed))
+    Ok(result)
+}
+
+/// 向后兼容的简化封装（无进度回调场景）
+pub async fn generate_all_snapshots_silent(
+    pool: &SqlitePool,
+    app_data_dir: &Path,
+    project_id: &str,
+) -> Result<(usize, usize), AppError> {
+    let r = generate_all_snapshots(pool, app_data_dir, project_id, |_, _| {}).await?;
+    Ok((r.success_count, r.failed_count))
 }
 
 /// 获取实体的完整演变历史

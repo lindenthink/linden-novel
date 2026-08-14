@@ -196,8 +196,8 @@ async function onBatchGenerate() {
     negativeText: "取消",
     onPositiveClick: async () => {
       try {
-        const res = await handleBatchSnapshots(props.projectId);
-        message.success(`批量完成：成功 ${res.success_count}，失败 ${res.failed_count}`);
+        await handleBatchSnapshots(props.projectId);
+        message.success("批量快照任务已提交，请在任务中心查看进度");
       } catch (e: any) {
         message.error(e?.toString() || "批量生成失败");
       }

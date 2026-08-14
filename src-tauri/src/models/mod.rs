@@ -13,3 +13,4 @@ pub mod ai_generation;
 pub mod embedding;
 pub mod embedding_chunk;
 pub mod entity_snapshot;
+pub mod async_task;

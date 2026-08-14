@@ -1,13 +1,11 @@
 import { ref } from "vue";
 import {
   generateChapterSummary,
-  batchGenerateSummaries,
-  syncProjectEmbeddings,
   getChapterSummary,
   type GenerateSummaryResponse,
-  type BatchSummaryResponse,
-  type SyncEmbeddingsResponse,
 } from "../api/longContext";
+import { submitTask } from "../api/tasks";
+import { useTaskCenter } from "./useTaskCenter";
 
 /**
  * SP4: 长上下文引擎前端状态与操作
@@ -22,6 +20,9 @@ const embeddingLoading = ref(false);
 const embeddingStatus = ref<string | null>(null);
 
 export function useLongContext() {
+  // 注意：useTaskCenter 是模块级单例，不在此解构使用，实际状态通过 TaskCenter UI 展示
+  useTaskCenter();
+
   /** 为指定章节生成摘要 */
   async function handleGenerateSummary(
     chapterId: string,
@@ -42,36 +43,58 @@ export function useLongContext() {
     }
   }
 
-  /** 批量生成项目摘要 */
+  /** 批量生成项目摘要 — 改为提交异步任务（fire-and-forget） */
   async function handleBatchSummaries(
     projectId: string,
-    onSuccess?: (res: BatchSummaryResponse) => void
+    onSuccess?: () => void
   ) {
     batchLoading.value = true;
-    batchProgress.value = null;
+    batchProgress.value = "批量摘要任务已提交，正在后台处理…";
     try {
-      const res = await batchGenerateSummaries(projectId);
-      batchProgress.value = `成功 ${res.success_count} / 失败 ${res.failed_count}`;
-      onSuccess?.(res);
-      return res;
+      await submitTask({
+        task_type: "generate_summary",
+        project_id: projectId,
+        target_type: null,
+        target_id: null,
+        content_hash: null,
+        payload_json: {},
+      });
+      onSuccess?.();
+    } catch (e: any) {
+      batchProgress.value = e?.toString() ?? "提交失败";
+      throw e;
     } finally {
       batchLoading.value = false;
     }
   }
 
-  /** 同步项目嵌入 */
+  /** 同步项目嵌入 — 改为提交异步任务（fire-and-forget） */
   async function handleSyncEmbeddings(
     projectId: string,
-    onSuccess?: (res: SyncEmbeddingsResponse) => void
+    onSuccess?: () => void
   ) {
     embeddingLoading.value = true;
-    embeddingStatus.value = null;
+    embeddingStatus.value = "同步任务已提交，正在后台处理…";
     try {
-      const res = await syncProjectEmbeddings(projectId);
-      embeddingStatus.value = `已嵌入 ${res.embedded_count} 个条目`;
-      onSuccess?.(res);
-      return res;
+      // 构造一个固定的 payload + content_hash（让 sync_embeddings 任务幂等：
+      // 项目级全量同步总是会跑完整流程，hash 使用 project_id 即可）
+      // 但更好的做法：sync_embeddings 不走 content_hash 幂等（因为每次调用意图都是全量）
+      // 所以不传 content_hash，允许重复提交。
+      await submitTask({
+        task_type: "sync_embeddings",
+        project_id: projectId,
+        target_type: null,
+        target_id: null,
+        content_hash: null,
+        payload_json: {}, // app_data_dir 在后端从 app handle 获取
+      });
+      onSuccess?.();
+    } catch (e: any) {
+      embeddingStatus.value = e?.toString() ?? "提交失败";
+      throw e;
     } finally {
+      // 注意：因为是 fire-and-forget，loading 很快置为 false
+      // 真实进度通过 TaskCenter 的事件实时更新
       embeddingLoading.value = false;
     }
   }

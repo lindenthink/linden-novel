@@ -4,11 +4,11 @@ import {
   listChapterSnapshots,
   listProjectEntities,
   generateChapterSnapshots,
-  batchGenerateSnapshots,
   type EvolutionResponse,
   type SnapshotItem,
   type ProjectEntity,
 } from "../api/entitySnapshot";
+import { submitTask } from "../api/tasks";
 
 const evolutionLoading = ref(false);
 const currentEvolution = ref<EvolutionResponse | null>(null);
@@ -78,16 +78,23 @@ export function useEntitySnapshot() {
     }
   }
 
-  /** 批量生成项目快照 */
+  /** 批量生成项目快照 — 改为提交异步任务（fire-and-forget） */
   async function handleBatchSnapshots(projectId: string) {
     generating.value = true;
-    generateResult.value = null;
+    generateResult.value = "批量快照任务已提交，正在后台处理…";
     try {
-      const res = await batchGenerateSnapshots(projectId);
-      generateResult.value = `成功 ${res.success_count} / 失败 ${res.failed_count}`;
-      // 刷新项目实体列表
-      await fetchProjectEntities(projectId);
-      return res;
+      await submitTask({
+        task_type: "generate_snapshots",
+        project_id: projectId,
+        target_type: null,
+        target_id: null,
+        content_hash: null,
+        payload_json: {},
+      });
+      generateResult.value = "批量快照任务已提交，请在任务中心查看进度";
+    } catch (e: any) {
+      generateResult.value = e?.toString() ?? "提交失败";
+      throw e;
     } finally {
       generating.value = false;
     }

@@ -133,7 +133,7 @@ pub async fn batch_generate_snapshots(
     })?;
 
     let (success_count, failed_count) =
-        entity_snapshot_service::generate_all_snapshots(
+        entity_snapshot_service::generate_all_snapshots_silent(
             pool.inner(),
             &app_data_dir,
             &request.project_id,

@@ -6,6 +6,8 @@ mod error;
 mod models;
 mod services;
 
+use std::sync::Arc;
+use services::task_manager::{TaskManager, TaskManagerState};
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -49,7 +51,29 @@ pub fn run() {
             let app_data_dir = app.path().app_data_dir()?.to_path_buf();
             let pool = tauri::async_runtime::block_on(db::pool::init_pool(&app_data_dir))
                 .expect("Failed to initialize database");
-            app.manage(pool);
+            app.manage(pool.clone());
+
+            // 初始化 TaskManager 并启动 Worker
+            let (tx, rx) = tokio::sync::mpsc::channel(100);
+            let task_manager = TaskManager::new_with_sender(pool.clone(), app.handle().clone(), tx);
+            let task_manager_state = Arc::new(tokio::sync::RwLock::new(Some(task_manager.clone())));
+            
+            // 崩溃恢复：将所有 running 状态的任务标记为 failed
+            if let Err(e) = tauri::async_runtime::block_on(
+                crate::db::repo::async_task_repo::reset_running_to_failed(&pool)
+            ) {
+                tracing::error!("Failed to reset running tasks during startup: {}", e);
+            }
+            
+            // 存储 TaskManager 到 State
+            app.manage(task_manager_state);
+            
+            // 启动后台 Worker 任务处理循环
+            let app_handle_clone = app.handle().clone();
+            let pool_clone = pool.clone();
+            tauri::async_runtime::spawn(async move {
+                TaskManager::run_worker(pool_clone, app_handle_clone, rx).await;
+            });
 
             // 后台下载嵌入模型（不阻塞应用启动，下载完成后嵌入功能自动可用）
             let embedder_dir = app_data_dir.join("embedder_model");
@@ -154,6 +178,11 @@ pub fn run() {
             commands::entity_snapshot::list_chapter_snapshots,
             commands::entity_snapshot::delete_project_snapshots,
             commands::entity_snapshot::list_project_entities,
+            // async tasks
+            commands::tasks::submit_task,
+            commands::tasks::list_tasks,
+            commands::tasks::get_task,
+            commands::tasks::cancel_task,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
