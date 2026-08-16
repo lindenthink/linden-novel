@@ -64,7 +64,7 @@ export async function ragSearch(
   options?: {
     topK?: number;
     minScore?: number;
-    excludeChapterId?: string;
+    excludeChapterIds?: string[];
   }
 ): Promise<RagSearchResponse> {
   return invoke<RagSearchResponse>("rag_search", {
@@ -73,7 +73,7 @@ export async function ragSearch(
       query,
       top_k: options?.topK ?? 3,
       min_score: options?.minScore ?? 0.3,
-      exclude_chapter_id: options?.excludeChapterId ?? null,
+      exclude_chapter_ids: options?.excludeChapterIds ?? [],
     },
   });
 }

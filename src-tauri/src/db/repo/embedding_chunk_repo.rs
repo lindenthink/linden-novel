@@ -179,13 +179,13 @@ pub async fn search(
     project_id: &str,
     query_embedding: &[f32],
     top_k: usize,
-    exclude_chapter_id: Option<&str>,
+    exclude_chapter_ids: &[String],
 ) -> Result<Vec<RetrievedChunk>, sqlx::Error> {
     // 优先 vec0，失败回退内存
-    if let Ok(r) = search_via_vec0(pool, project_id, query_embedding, top_k, exclude_chapter_id).await {
+    if let Ok(r) = search_via_vec0(pool, project_id, query_embedding, top_k, exclude_chapter_ids).await {
         return Ok(r);
     }
-    search_via_memory(pool, project_id, query_embedding, top_k, exclude_chapter_id).await
+    search_via_memory(pool, project_id, query_embedding, top_k, exclude_chapter_ids).await
 }
 
 async fn search_via_vec0(
@@ -193,7 +193,7 @@ async fn search_via_vec0(
     project_id: &str,
     query_embedding: &[f32],
     top_k: usize,
-    exclude_chapter_id: Option<&str>,
+    exclude_chapter_ids: &[String],
 ) -> Result<Vec<RetrievedChunk>, sqlx::Error> {
     let query_bytes = encode_embedding(query_embedding);
 
@@ -213,7 +213,7 @@ async fn search_via_vec0(
 
     let mut scored: Vec<RetrievedChunk> = rows
         .into_iter()
-        .filter(|(cid, _, _)| exclude_chapter_id.map_or(true, |ex| cid != ex))
+        .filter(|(cid, _, _)| !exclude_chapter_ids.iter().any(|ex| ex == cid))
         .map(|(chapter_id, chunk_index, dist)| {
             // distance → score
             RetrievedChunk {
@@ -250,7 +250,7 @@ async fn search_via_memory(
     project_id: &str,
     query_embedding: &[f32],
     top_k: usize,
-    exclude_chapter_id: Option<&str>,
+    exclude_chapter_ids: &[String],
 ) -> Result<Vec<RetrievedChunk>, sqlx::Error> {
     let rows = sqlx::query_as::<_, EmbeddingChunkRow>(
         "SELECT * FROM embedding_chunks WHERE project_id = ?",
@@ -261,7 +261,7 @@ async fn search_via_memory(
 
     let mut scored: Vec<RetrievedChunk> = rows
         .into_iter()
-        .filter(|r| exclude_chapter_id.map_or(true, |ex| r.chapter_id != ex))
+        .filter(|r| !exclude_chapter_ids.iter().any(|ex| *ex == r.chapter_id))
         .map(|r| {
             let dim = r.dim as usize;
             let vec = decode_embedding(&r.embedding, dim);

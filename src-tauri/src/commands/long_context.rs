@@ -53,7 +53,8 @@ pub struct RagSearchRequest {
     pub top_k: usize,
     #[serde(default = "default_min_score")]
     pub min_score: f32,
-    pub exclude_chapter_id: Option<String>,
+    #[serde(default)]
+    pub exclude_chapter_ids: Vec<String>,
 }
 
 fn default_top_k() -> usize {
@@ -161,7 +162,7 @@ pub async fn rag_search(
     let config = crate::ai::rag::RagConfig {
         top_k: request.top_k,
         min_score: request.min_score,
-        exclude_chapter_id: request.exclude_chapter_id,
+        exclude_chapter_ids: request.exclude_chapter_ids,
         exclude_element_ids: Vec::new(),
     };
 

@@ -9,6 +9,16 @@ use crate::models::ai_generation::{
 };
 use crate::models::chapter::Chapter;
 
+/// 相邻章节信息（含 id 和摘要）
+///
+/// id 用于 RAG 检索排除（前一章摘要已作为独立字段拼进 prompt，避免在检索结果中重复）；
+/// summary 用于 prompt 的「相邻章节摘要」段落。
+#[derive(Debug, Clone)]
+struct AdjacentChapter {
+    id: String,
+    summary: String,
+}
+
 /// 获取相邻章节的摘要
 ///
 /// # 逻辑
@@ -18,10 +28,10 @@ use crate::models::chapter::Chapter;
 async fn get_adjacent_summaries(
     pool: &SqlitePool,
     chapter: &Chapter,
-) -> Result<(Option<String>, Option<String>), AppError> {
+) -> Result<(Option<AdjacentChapter>, Option<AdjacentChapter>), AppError> {
     // 前一章：order_index < current 且最大
-    let prev: Option<(Option<String>,)> = sqlx::query_as(
-        "SELECT summary FROM chapters
+    let prev: Option<(String, Option<String>)> = sqlx::query_as(
+        "SELECT id, summary FROM chapters
          WHERE volume_id = ? AND order_index < ?
          ORDER BY order_index DESC LIMIT 1",
     )
@@ -31,13 +41,14 @@ async fn get_adjacent_summaries(
     .await
     .map_err(AppError::from)?;
 
-    let previous = prev
-        .and_then(|(s,)| s)
-        .filter(|s| !s.trim().is_empty());
+    let previous = prev.and_then(|(id, s)| {
+        s.filter(|s| !s.trim().is_empty())
+            .map(|summary| AdjacentChapter { id, summary })
+    });
 
     // 后一章：order_index > current 且最小
-    let next: Option<(Option<String>,)> = sqlx::query_as(
-        "SELECT summary FROM chapters
+    let next: Option<(String, Option<String>)> = sqlx::query_as(
+        "SELECT id, summary FROM chapters
          WHERE volume_id = ? AND order_index > ?
          ORDER BY order_index ASC LIMIT 1",
     )
@@ -47,11 +58,12 @@ async fn get_adjacent_summaries(
     .await
     .map_err(AppError::from)?;
 
-    let next_summary = next
-        .and_then(|(s,)| s)
-        .filter(|s| !s.trim().is_empty());
+    let next_chapter = next.and_then(|(id, s)| {
+        s.filter(|s| !s.trim().is_empty())
+            .map(|summary| AdjacentChapter { id, summary })
+    });
 
-    Ok((previous, next_summary))
+    Ok((previous, next_chapter))
 }
 
 /// 收集章节生成上下文（含前后章节摘要 + RAG 检索）
@@ -158,10 +170,17 @@ pub async fn collect_context_with_rag_and_instruction(
     }
 
     // 4. 前后章节摘要
-    let (previous_chapter_summary, next_chapter_summary) =
-        get_adjacent_summaries(pool, &chapter).await?;
+    let (prev_adjacent, next_adjacent) = get_adjacent_summaries(pool, &chapter).await?;
+    let previous_chapter_summary = prev_adjacent.as_ref().map(|a| a.summary.clone());
+    let next_chapter_summary = next_adjacent.as_ref().map(|a| a.summary.clone());
 
     // 5. RAG 检索
+    // 排除当前章节 + 前一章：前一章摘要已作为独立字段拼进 prompt，避免在 rag_context 中重复
+    let mut exclude_chapter_ids = vec![chapter_id.to_string()];
+    if let Some(prev) = &prev_adjacent {
+        exclude_chapter_ids.push(prev.id.clone());
+    }
+
     let rag_context = if let Some(dir) = app_data_dir {
         let query = build_rag_query(&chapter, previous_chapter_summary.as_deref(), user_instruction);
         tracing::info!("RAG query: {:?}", query);
@@ -169,7 +188,7 @@ pub async fn collect_context_with_rag_and_instruction(
             None
         } else {
             let config = RagConfig {
-                exclude_chapter_id: Some(chapter_id.to_string()),
+                exclude_chapter_ids,
                 exclude_element_ids,
                 ..Default::default()
             };

@@ -63,7 +63,7 @@ pub struct RagChunk {
 pub struct RagConfig {
     pub top_k: usize,
     pub min_score: f32,
-    pub exclude_chapter_id: Option<String>,
+    pub exclude_chapter_ids: Vec<String>,
     pub exclude_element_ids: Vec<String>,
 }
 
@@ -72,7 +72,7 @@ impl Default for RagConfig {
         Self {
             top_k: 3,
             min_score: 0.3,
-            exclude_chapter_id: None,
+            exclude_chapter_ids: Vec::new(),
             exclude_element_ids: Vec::new(),
         }
     }
@@ -114,7 +114,7 @@ pub async fn retrieve(
             continue;
         }
         if item.source_type == "chapter"
-            && config.exclude_chapter_id.as_deref() == Some(&item.source_id)
+            && config.exclude_chapter_ids.contains(&item.source_id)
         {
             continue;
         }
@@ -205,7 +205,7 @@ pub async fn retrieve(
         project_id,
         query,
         config.top_k * 2,
-        config.exclude_chapter_id.as_deref(),
+        &config.exclude_chapter_ids,
     )
     .await
     {

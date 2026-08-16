@@ -166,7 +166,7 @@ pub async fn search_chunks(
     project_id: &str,
     query: &str,
     top_k: usize,
-    exclude_chapter_id: Option<&str>,
+    exclude_chapter_ids: &[String],
 ) -> Result<Vec<RetrievedChunk>, AppError> {
     if query.trim().is_empty() {
         return Ok(Vec::new());
@@ -185,7 +185,7 @@ pub async fn search_chunks(
         project_id,
         &resp.vector,
         top_k,
-        exclude_chapter_id,
+        exclude_chapter_ids,
     )
     .await?;
 
