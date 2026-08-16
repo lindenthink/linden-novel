@@ -112,16 +112,18 @@ pub async fn update_status(
 ) -> Result<(), AppError> {
     let now = pool::now();
     let status_str = status.to_string();
-    
+
+    // 终态保护：已完成的任务不允许被进度回调改回 running/pending
+    // （progress_callback 用 tauri::spawn 异步执行，可能在 update_result(Completed) 之后才到达）
     sqlx::query(
-        "UPDATE async_tasks SET 
+        "UPDATE async_tasks SET
             status = ?,
             progress_current = COALESCE(?, progress_current),
             progress_total = COALESCE(?, progress_total),
             result_json = COALESCE(?, result_json),
             error_message = COALESCE(?, error_message),
             completed_at = CASE WHEN ? IN ('completed', 'failed', 'cancelled') THEN ? ELSE completed_at END
-         WHERE id = ?"
+         WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled')"
     )
     .bind(&status_str)
     .bind(progress_current)

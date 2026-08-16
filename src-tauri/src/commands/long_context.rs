@@ -1,8 +1,12 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use sqlx::SqlitePool;
 use tauri::{AppHandle, Manager, State};
 
+use crate::db::repo::chapter_repo;
 use crate::error::AppError;
+use crate::models::async_task::NewTaskRequest;
+use crate::services::task_manager::TaskManagerState;
 use crate::services::{embedding_service, summary_service};
 
 // --- 请求/响应类型 ---
@@ -90,14 +94,33 @@ pub struct DeleteEmbeddingsRequest {
 pub async fn generate_chapter_summary(
     app: AppHandle,
     pool: State<'_, SqlitePool>,
+    task_manager_state: State<'_, TaskManagerState>,
     request: GenerateSummaryRequest,
 ) -> Result<GenerateSummaryResponse, AppError> {
     let app_data_dir = app.path().app_data_dir().map_err(|e| {
         AppError::Internal(format!("Failed to get app data dir: {}", e))
     })?;
 
-    let summary =
-        summary_service::generate_chapter_summary(pool.inner(), &app_data_dir, &request.chapter_id, request.force).await?;
+    // trigger_embedding=false：由本 command 统一提交 embed_element + embed_chapter 任务到 TaskManager，
+    // 让任务中心展示进度（单章节场景）
+    let summary = summary_service::generate_chapter_summary(
+        pool.inner(),
+        &app_data_dir,
+        &request.chapter_id,
+        request.force,
+        false,
+    )
+    .await?;
+
+    // 提交摘要级 + 切片级嵌入任务到任务中心
+    submit_chapter_embedding_tasks(
+        &app,
+        &task_manager_state,
+        pool.inner(),
+        &request.chapter_id,
+        &summary,
+    )
+    .await?;
 
     let char_count = summary.chars().count();
     Ok(GenerateSummaryResponse {
@@ -105,6 +128,72 @@ pub async fn generate_chapter_summary(
         summary,
         char_count,
     })
+}
+
+/// 提交章节嵌入任务（摘要级 embed_element + 切片级 embed_chapter）到 TaskManager
+async fn submit_chapter_embedding_tasks(
+    app: &AppHandle,
+    task_manager_state: &State<'_, TaskManagerState>,
+    pool: &SqlitePool,
+    chapter_id: &str,
+    summary: &str,
+) -> Result<(), AppError> {
+    let app_data_dir = app.path().app_data_dir().map_err(|e| {
+        AppError::Internal(format!("Failed to get app data dir: {}", e))
+    })?;
+    let app_data_dir_str = app_data_dir.to_string_lossy().to_string();
+
+    let chapter = chapter_repo::get(pool, chapter_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("Chapter '{}' not found", chapter_id)))?;
+    let project_id = chapter.project_id.clone();
+
+    let task_manager = task_manager_state
+        .read()
+        .await
+        .clone()
+        .ok_or_else(|| AppError::Internal("TaskManager not initialized".into()))?;
+
+    // 1. 摘要级嵌入任务（target_type=chapter）
+    let mut hasher = Sha256::new();
+    hasher.update(summary.as_bytes());
+    let summary_hash = format!("{:x}", hasher.finalize());
+
+    task_manager
+        .submit(NewTaskRequest {
+            task_type: "embed_element".to_string(),
+            project_id: project_id.clone(),
+            target_type: Some("chapter".to_string()),
+            target_id: Some(chapter_id.to_string()),
+            content_hash: Some(summary_hash),
+            payload_json: Some(serde_json::json!({
+                "text": summary,
+                "app_data_dir": app_data_dir_str,
+            })),
+        })
+        .await?;
+
+    // 2. 切片级嵌入任务（重建该章节切片向量）
+    // content_hash 基于 chapter_id：同章节 pending/running 时幂等跳过；
+    // 已完成的任务可重新提交（用户重新生成摘要时章节内容可能已变化）
+    let mut hasher = Sha256::new();
+    hasher.update(chapter_id.as_bytes());
+    let chapter_hash = format!("{:x}", hasher.finalize());
+
+    task_manager
+        .submit(NewTaskRequest {
+            task_type: "embed_chapter".to_string(),
+            project_id,
+            target_type: Some("chapter".to_string()),
+            target_id: Some(chapter_id.to_string()),
+            content_hash: Some(chapter_hash),
+            payload_json: Some(serde_json::json!({
+                "app_data_dir": app_data_dir_str,
+            })),
+        })
+        .await?;
+
+    Ok(())
 }
 
 /// 批量为项目内所有无摘要章节生成摘要

@@ -174,6 +174,7 @@ async fn process_task(
     // 3. 根据 task_type 分发处理
     let result = match task.task_type.as_str() {
         "embed_element" => process_embed_element(pool, &task, app_handle).await,
+        "embed_chapter" => process_embed_chapter(pool, &task, app_handle).await,
         "sync_embeddings" => process_sync_embeddings(pool, &task, app_handle).await,
         "generate_summary" => process_generate_summary(pool, &task, app_handle).await,
         "generate_snapshots" => process_generate_snapshots(pool, &task, app_handle).await,
@@ -323,6 +324,75 @@ async fn process_embed_element(
         tracing::info!("Embedding skipped (hash unchanged or empty) for task {}", task_id);
     }
 
+    Ok(())
+}
+
+/// 处理 embed_chapter 类型的任务：章节切片级嵌入（重建该章节所有切片向量）
+async fn process_embed_chapter(
+    pool: &SqlitePool,
+    task: &AsyncTask,
+    app_handle: &AppHandle,
+) -> Result<(), AppError> {
+    let task_id = &task.id;
+    let chapter_id = task.target_id.as_deref()
+        .ok_or_else(|| AppError::Validation("No target_id for embed_chapter task".into()))?;
+
+    let payload_str = task.payload_json.as_deref()
+        .ok_or_else(|| AppError::Validation("No payload for embed_chapter task".into()))?;
+    let payload: serde_json::Value = serde_json::from_str(payload_str)
+        .map_err(|e| AppError::Internal(format!("Failed to parse payload: {}", e)))?;
+
+    let app_data_dir_str = payload.get("app_data_dir")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError::Validation("No 'app_data_dir' in payload".into()))?;
+    let app_data_dir = PathBuf::from(app_data_dir_str);
+
+    tracing::info!(
+        "Processing embed_chapter task: id={}, chapter_id={}",
+        task_id, chapter_id
+    );
+
+    // 读取章节正文
+    let content = crate::services::summary_service::get_chapter_text(pool, chapter_id).await?;
+    if content.trim().is_empty() {
+        tracing::info!("Chapter {} content is empty, skipping chunk embedding", chapter_id);
+        return Ok(());
+    }
+
+    // 更新进度：0/1
+    async_task_repo::update_progress(pool, task_id, 0).await?;
+    let _ = app_handle.emit(
+        "task-progress",
+        serde_json::json!({
+            "task_id": task_id,
+            "progress_current": 0,
+            "progress_total": 1
+        }),
+    );
+
+    // 执行切片嵌入
+    crate::services::chunk_embedding_service::embed_chapter(
+        pool,
+        &app_data_dir,
+        chapter_id,
+        &task.project_id,
+        &content,
+        &crate::ai::chunker::ChunkConfig::default(),
+    )
+    .await?;
+
+    // 更新进度：1/1
+    async_task_repo::update_progress(pool, task_id, 1).await?;
+    let _ = app_handle.emit(
+        "task-progress",
+        serde_json::json!({
+            "task_id": task_id,
+            "progress_current": 1,
+            "progress_total": 1
+        }),
+    );
+
+    tracing::info!("Successfully embedded chapter chunks for task {}", task_id);
     Ok(())
 }
 
