@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { NModal, NForm, NFormItem, NInput, useMessage } from "naive-ui";
+import { NModal, NForm, NFormItem, NInput, NTag, useMessage } from "naive-ui";
 import { useElementStore } from "../../stores/element";
 import { useProjectStore } from "../../stores/project";
 import ElementList from "./ElementList.vue";
@@ -88,7 +88,19 @@ async function handleDelete(id: string) {
       @create="handleCreate"
       @edit="handleEdit"
       @delete="handleDelete"
-    />
+    >
+      <template #item-meta="{ item }">
+        <NTag
+          v-if="(item as WorldviewEntry).category"
+          size="small"
+          type="warning"
+          round
+          class="flex-shrink-0"
+        >
+          {{ (item as WorldviewEntry).category }}
+        </NTag>
+      </template>
+    </ElementList>
 
     <NModal
       v-model:show="showEdit"

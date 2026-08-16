@@ -62,9 +62,12 @@ function handleDelete(id: string) {
           :key="item.id"
           @click="handleEdit(item)"
         >
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between w-full">
             <div class="flex-1 min-w-0">
-              <div class="font-medium truncate">{{ item.name }}</div>
+              <div class="flex items-center gap-2">
+                <span class="font-medium truncate">{{ item.name }}</span>
+                <slot name="item-meta" :item="item" />
+              </div>
               <div v-if="item.description" class="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">
                 {{ item.description }}
               </div>

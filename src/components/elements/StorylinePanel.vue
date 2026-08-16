@@ -1,10 +1,32 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { NModal, NForm, NFormItem, NInput, NSelect, useMessage } from "naive-ui";
+import { NModal, NForm, NFormItem, NInput, NSelect, NTag, useMessage } from "naive-ui";
 import { useElementStore } from "../../stores/element";
 import { useProjectStore } from "../../stores/project";
 import ElementList from "./ElementList.vue";
 import type { Storyline } from "../../types";
+
+const statusTagType = (
+  status: Storyline["status"],
+): "success" | "info" | "warning" | "error" | "default" => {
+  return status === "active"
+    ? "success"
+    : status === "completed"
+      ? "info"
+      : status === "abandoned"
+        ? "warning"
+        : "default";
+};
+
+const statusTagLabel = (status: Storyline["status"]): string => {
+  return status === "active"
+    ? "进行中"
+    : status === "completed"
+      ? "已完成"
+      : status === "abandoned"
+        ? "已放弃"
+        : status;
+};
 
 const elementStore = useElementStore();
 const projectStore = useProjectStore();
@@ -93,7 +115,18 @@ async function handleDelete(id: string) {
       @create="handleCreate"
       @edit="handleEdit"
       @delete="handleDelete"
-    />
+    >
+      <template #item-meta="{ item }">
+        <NTag
+          size="small"
+          round
+          :type="statusTagType((item as Storyline).status)"
+          class="flex-shrink-0"
+        >
+          {{ statusTagLabel((item as Storyline).status) }}
+        </NTag>
+      </template>
+    </ElementList>
 
     <NModal
       v-model:show="showEdit"
