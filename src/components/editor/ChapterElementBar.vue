@@ -68,9 +68,9 @@ const addOptions = computed(() => {
     });
   }
 
-  // 故事线
+  // 故事线：仅显示进行中的故事线
   const availableStorylines = elementStore.storylines.filter(
-    (s) => !linked.has(`storyline:${s.id}`),
+    (s) => s.status === "active" && !linked.has(`storyline:${s.id}`),
   );
   if (availableStorylines.length > 0) {
     options.push({ label: "故事线", key: "group-storyline", type: "group" });
