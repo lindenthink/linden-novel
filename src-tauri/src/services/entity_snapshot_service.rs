@@ -417,12 +417,16 @@ pub struct BatchSnapshotResult {
     pub success_count: usize,
     pub failed_count: usize,
     pub total_chapters: usize,
+    pub skipped_count: usize,
 }
 
 /// 批量为项目内所有章节生成实体快照
 ///
+/// 已有快照的章节会被跳过（与 `generate_all_summaries` 跳过已有摘要的章节保持一致），
+/// 单章生成时由前端弹窗确认覆盖。
+///
 /// # 参数
-/// - `progress`: 进度回调 `(current, total)`，current 为已处理的章节数，total 为总章节数
+/// - `progress`: 进度回调 `(current, total)`，current 为已处理的章节数，total 为待生成章节数
 pub async fn generate_all_snapshots<F>(
     pool: &SqlitePool,
     app_data_dir: &Path,
@@ -440,15 +444,34 @@ where
     .await
     .map_err(AppError::from)?;
 
-    let total = chapters.len();
+    // 筛出需要生成快照的章节：跳过已存在快照的章节
+    let mut need_snapshots: Vec<&Chapter> = Vec::new();
+    for c in &chapters {
+        if entity_snapshot_repo::exists_by_chapter_id(pool, &c.id).await? {
+            continue;
+        }
+        need_snapshots.push(c);
+    }
+
+    let total = need_snapshots.len();
+    let skipped = chapters.len() - total;
     let mut result = BatchSnapshotResult {
-        total_chapters: total,
+        total_chapters: chapters.len(),
+        skipped_count: skipped,
         ..Default::default()
     };
 
+    tracing::info!(
+        "Batch snapshot generation: {} chapters total, {} to generate, {} skipped (project {})",
+        chapters.len(),
+        total,
+        skipped,
+        project_id
+    );
+
     progress(0, total);
 
-    for (i, chapter) in chapters.iter().enumerate() {
+    for (i, chapter) in need_snapshots.iter().enumerate() {
         match generate_chapter_snapshots(pool, app_data_dir, &chapter.id).await {
             Ok((s, f)) => {
                 result.success_count += s;

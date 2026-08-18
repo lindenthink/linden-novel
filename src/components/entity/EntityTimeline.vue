@@ -191,7 +191,7 @@ async function onBatchGenerate() {
   dialog.warning({
     title: "确认批量生成",
     content:
-      "将为项目内所有摘要为空的章节逐一调用 AI 生成实体快照，确定继续吗？",
+      "将为项目内未生成快照的章节逐一调用 AI 生成实体快照，确定继续吗？",
     positiveText: "继续生成",
     negativeText: "取消",
     onPositiveClick: async () => {
@@ -298,9 +298,6 @@ watch(() => chapterStore.activeChapterId, () => {
         </template>
         批量生成
       </NButton>
-      <span v-if="generateResult" class="text-xs text-gray-500 ml-1">
-        {{ generateResult }}
-      </span>
     </div>
 
     <!-- 标签页 -->

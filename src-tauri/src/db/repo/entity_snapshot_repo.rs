@@ -89,6 +89,20 @@ pub async fn list_by_chapter(
     .await
 }
 
+/// 判断指定章节是否已存在任意实体快照（批量生成时用于跳过已有快照的章节）
+pub async fn exists_by_chapter_id(
+    pool: &SqlitePool,
+    chapter_id: &str,
+) -> Result<bool, sqlx::Error> {
+    let row: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM entity_snapshots WHERE chapter_id = ?",
+    )
+    .bind(chapter_id)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0 > 0)
+}
+
 /// 列出项目内所有有快照的实体（去重），返回 (entity_type, entity_id, name)
 pub async fn list_project_entities(
     pool: &SqlitePool,

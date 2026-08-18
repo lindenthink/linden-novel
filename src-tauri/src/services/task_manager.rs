@@ -618,10 +618,11 @@ async fn process_generate_snapshots(
     .await?;
 
     tracing::info!(
-        "generate_snapshots task {} completed: success={}, failed={}, total_chapters={}",
+        "generate_snapshots task {} completed: success={}, failed={}, skipped={}, total_chapters={}",
         task_id,
         result.success_count,
         result.failed_count,
+        result.skipped_count,
         result.total_chapters,
     );
 
