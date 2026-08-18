@@ -21,8 +21,18 @@ const chapterStore = useChapterStore();
 const { aiGenerationDefaultMode } = useEditorUI();
 const message = useMessage();
 
-// 推理过程折叠状态：默认展开，便于实时观察
+// 推理过程折叠状态：默认展开，便于实时观察；推理完成后自动收起
 const reasoningExpanded = ref<string[]>(['reasoning']);
+
+// 推理完成（reasoningActive 由 true 转为 false）时自动收起折叠区
+watch(
+  () => aiGenerationStore.reasoningActive,
+  (active, prev) => {
+    if (prev && !active) {
+      reasoningExpanded.value = [];
+    }
+  },
+);
 
 // 内容区 ref：用于流式追加时自动滚动到底部
 const reasoningContentRef = ref<HTMLElement | null>(null);
@@ -445,8 +455,7 @@ function formatTime(time: string): string {
 
 /* 推理过程折叠区 */
 .reasoning-section {
-  padding-top: 12px;
-  padding-left: 5px;
+  padding: 12px 5px;
   margin-bottom: 12px;
   border: 1px solid var(--n-border-color, #e0e0e6);
   border-radius: 4px;
