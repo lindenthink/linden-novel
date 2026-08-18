@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
-import { NModal, NSelect, NInput, NInputNumber, NButton, NSpace, NAlert, NSpin, NTag, NPopconfirm, NCollapse, NCollapseItem, useMessage } from 'naive-ui';
+import { NModal, NSelect, NInput, NInputNumber, NButton, NSpace, NAlert, NSpin, NTag, NPopconfirm, NCollapse, NCollapseItem, useMessage, useDialog } from 'naive-ui';
 import { useAiGenerationStore } from '../../stores/ai_generation';
 import { useChapterStore } from '../../stores/chapter';
 import { useEditorUI, type AIGenerationMode } from '../../composables/useEditorUI';
 import type { GenerateRequest } from '../../types/ai_generation';
+import type { Chapter } from '../../types';
 import { listChapterElements } from '../../api/element';
 
 const props = defineProps<{
@@ -20,6 +21,7 @@ const aiGenerationStore = useAiGenerationStore();
 const chapterStore = useChapterStore();
 const { aiGenerationDefaultMode } = useEditorUI();
 const message = useMessage();
+const dialog = useDialog();
 
 // 推理过程折叠状态：默认展开，便于实时观察；推理完成后自动收起
 const reasoningExpanded = ref<string[]>(['reasoning']);
@@ -113,9 +115,45 @@ watch(
   }
 );
 
+// 找到当前章节的上一章（按 order_index 跨卷排序）
+function findPreviousChapter(): Chapter | null {
+  const currentId = chapterStore.activeChapterId;
+  if (!currentId) return null;
+  const sorted = [...chapterStore.chapters].sort((a, b) => a.order_index - b.order_index);
+  const idx = sorted.findIndex((c) => c.id === currentId);
+  if (idx <= 0) return null;
+  return sorted[idx - 1];
+}
+
+// 检查上一章是否有内容但无摘要，若无则弹窗让用户确认是否继续
+async function checkPrevChapterSummary(): Promise<boolean> {
+  const prev = findPreviousChapter();
+  if (!prev) return true;
+  // 有正文内容但无摘要：续写提示词将缺少上一章上下文
+  if (prev.word_count > 0 && !prev.summary) {
+    return new Promise<boolean>((resolve) => {
+      dialog.warning({
+        title: '上一章缺少摘要',
+        content: `上一章「${prev.title}」有正文内容但未生成摘要，AI 生成将缺少上一章的上下文，可能影响连贯性。是否继续？`,
+        positiveText: '继续生成',
+        negativeText: '取消',
+        onPositiveClick: () => resolve(true),
+        onNegativeClick: () => resolve(false),
+        onClose: () => resolve(false),
+        onMaskClick: () => resolve(false),
+      });
+    });
+  }
+  return true;
+}
+
 // 生成（流式：首 token 即实时追加显示）
 async function handleGenerate() {
   if (!canGenerate.value) return;
+
+  // 上一章有内容但无摘要时让用户确认
+  const ok = await checkPrevChapterSummary();
+  if (!ok) return;
 
   try {
     await aiGenerationStore.generateStream(form.value);
