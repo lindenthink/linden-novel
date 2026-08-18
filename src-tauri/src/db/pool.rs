@@ -7,8 +7,7 @@ pub fn now() -> String {
     chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
-/// 注册 sqlite-vec 扩展（静态链接，无需外部 .dll）
-///
+
 /// 通过 `sqlite3_auto_extension` 让每个新连接自动加载 vec0 模块。
 /// 仅需在进程启动时调用一次。
 fn register_sqlite_vec() {
@@ -73,16 +72,17 @@ pub async fn init_pool(db_dir: &Path) -> Result<SqlitePool, sqlx::Error> {
 
 /// 尝试创建 vec0 虚拟表（摘要级 + 切片级）
 ///
-/// 维度通过 LINDEN_EMBED_DIM 环境变量配置，默认 384（MiniLM）。
+/// project_id 用 `partition key` 关键字声明，KNN 查询时可直接 `WHERE project_id = ?`
+/// 过滤，性能远优于全表扫描 + Rust 层后过滤。
 async fn try_create_vec0_tables(pool: &SqlitePool) {
     let dim = embed_dim();
 
     match sqlx::query(&format!(
         "CREATE VIRTUAL TABLE IF NOT EXISTS embeddings_vec USING vec0(
-            +project_id   TEXT,
-            +source_type  TEXT,
-            +source_id    TEXT,
-            embedding     float[{}] distance_metric=cosine
+            project_id   TEXT partition key,
+            source_type  TEXT,
+            source_id    TEXT,
+            embedding    float[{}] distance_metric=cosine
         )",
         dim
     ))
@@ -95,10 +95,10 @@ async fn try_create_vec0_tables(pool: &SqlitePool) {
 
     match sqlx::query(&format!(
         "CREATE VIRTUAL TABLE IF NOT EXISTS chunks_vec USING vec0(
-            +project_id   TEXT,
-            +chapter_id   TEXT,
-            +chunk_index  INTEGER,
-            embedding     float[{}] distance_metric=cosine
+            project_id   TEXT partition key,
+            chapter_id   TEXT,
+            chunk_index  INTEGER,
+            embedding    float[{}] distance_metric=cosine
         )",
         dim
     ))

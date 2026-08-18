@@ -181,11 +181,25 @@ pub async fn search(
     top_k: usize,
     exclude_chapter_ids: &[String],
 ) -> Result<Vec<RetrievedChunk>, sqlx::Error> {
-    // 优先 vec0，失败回退内存
-    if let Ok(r) = search_via_vec0(pool, project_id, query_embedding, top_k, exclude_chapter_ids).await {
-        return Ok(r);
+    let start = std::time::Instant::now();
+    match search_via_vec0(pool, project_id, query_embedding, top_k, exclude_chapter_ids).await {
+        Ok(r) => {
+            tracing::debug!(
+                "chunks_vec hit: {} results, {:?}",
+                r.len(),
+                start.elapsed()
+            );
+            Ok(r)
+        }
+        Err(e) => {
+            tracing::warn!(
+                "chunks_vec search failed, fallback to memory (slow): {} ({:?})",
+                e,
+                start.elapsed()
+            );
+            search_via_memory(pool, project_id, query_embedding, top_k, exclude_chapter_ids).await
+        }
     }
-    search_via_memory(pool, project_id, query_embedding, top_k, exclude_chapter_ids).await
 }
 
 async fn search_via_vec0(
@@ -196,32 +210,33 @@ async fn search_via_vec0(
     exclude_chapter_ids: &[String],
 ) -> Result<Vec<RetrievedChunk>, sqlx::Error> {
     let query_bytes = encode_embedding(query_embedding);
-
-    // vec0 的辅助列过滤通过 WHERE 实现：先 KNN 取 top_k * 3，再在外层过滤 exclude
-    let rows: Vec<(String, i32, f32)> = sqlx::query_as(
+    // project_id 作为 partition key 可在 KNN WHERE 过滤；
+    // exclude_chapter_ids 仍是多值过滤，partition key 只支持单值 `=`，需过取后在 Rust 层过滤
+    let over_fetch = top_k * 3;
+    let sql = format!(
         "SELECT chapter_id, chunk_index, distance
          FROM chunks_vec
          WHERE project_id = ?
            AND embedding MATCH ?
-           AND k = ?",
-    )
-    .bind(project_id)
-    .bind(&query_bytes)
-    .bind((top_k * 3) as i64)
-    .fetch_all(pool)
-    .await?;
+           AND k = {}",
+        over_fetch
+    );
+
+    let rows: Vec<(String, i32, f32)> = sqlx::query_as(&sql)
+        .bind(project_id)
+        .bind(&query_bytes)
+        .fetch_all(pool)
+        .await?;
 
     let mut scored: Vec<RetrievedChunk> = rows
         .into_iter()
+        // Rust 层仅过滤 exclude_chapter_ids（partition key 已在 SQL 层过滤 project_id）
         .filter(|(cid, _, _)| !exclude_chapter_ids.iter().any(|ex| ex == cid))
-        .map(|(chapter_id, chunk_index, dist)| {
-            // distance → score
-            RetrievedChunk {
-                chapter_id,
-                chunk_index,
-                chunk_text: String::new(), // 占位，下方回查
-                score: 1.0 - dist,
-            }
+        .map(|(chapter_id, chunk_index, dist)| RetrievedChunk {
+            chapter_id,
+            chunk_index,
+            chunk_text: String::new(), // 占位，下方回查
+            score: 1.0 - dist,
         })
         .collect();
 
@@ -230,20 +245,21 @@ async fn search_via_vec0(
     scored.truncate(top_k);
 
     if !scored.is_empty() {
-        // 构造 WHERE (chapter_id = ? AND chunk_index = ?) OR ... 一次性取回所有命中
-        let mut qb = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
-            "SELECT chapter_id, chunk_index, chunk_text FROM embedding_chunks WHERE ",
+        // 用行值表达式批量查询：(chapter_id, chunk_index) IN ((?,?), (?,?), ...)
+        let placeholders: Vec<String> = scored
+            .iter()
+            .map(|_| "(?, ?)".to_string())
+            .collect();
+        let sql = format!(
+            "SELECT chapter_id, chunk_index, chunk_text FROM embedding_chunks \
+             WHERE (chapter_id, chunk_index) IN ({})",
+            placeholders.join(", ")
         );
-        let mut sep = qb.separated(" OR ");
+        let mut q = sqlx::query_as::<_, (String, i32, String)>(&sql);
         for item in &scored {
-            sep.push("(chapter_id = ")
-                .push_bind(item.chapter_id.clone())
-                .push(" AND chunk_index = ")
-                .push_bind(item.chunk_index)
-                .push(")");
+            q = q.bind(item.chapter_id.clone()).bind(item.chunk_index);
         }
-
-        let rows: Vec<(String, i32, String)> = qb.build_query_as().fetch_all(pool).await?;
+        let rows: Vec<(String, i32, String)> = q.fetch_all(pool).await?;
 
         // 建立 (chapter_id, chunk_index) -> chunk_text 映射后批量回填
         let mut text_map: std::collections::HashMap<(String, i32), String> =

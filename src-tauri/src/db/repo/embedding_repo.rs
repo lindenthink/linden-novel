@@ -228,13 +228,31 @@ pub async fn search(
     top_k: usize,
 ) -> Result<Vec<RetrievedItem>, sqlx::Error> {
     // 优先 vec0 加速，失败回退内存余弦
-    if let Ok(results) = search_via_vec0(pool, project_id, query_embedding, top_k).await {
-        return Ok(results);
+    let start = std::time::Instant::now();
+    match search_via_vec0(pool, project_id, query_embedding, top_k).await {
+        Ok(results) => {
+            tracing::debug!(
+                "embeddings_vec hit: {} results, {:?}",
+                results.len(),
+                start.elapsed()
+            );
+            Ok(results)
+        }
+        Err(e) => {
+            tracing::warn!(
+                "embeddings_vec search failed, fallback to memory (slow): {} ({:?})",
+                e,
+                start.elapsed()
+            );
+            search_via_memory(pool, project_id, query_embedding, top_k).await
+        }
     }
-    search_via_memory(pool, project_id, query_embedding, top_k).await
 }
 
-/// vec0 KNN：MATCH + k 参数，返回余弦相似度 score（distance → 1 - distance）
+/// vec0 KNN：project_id 为 partition key，KNN 查询时可直接 WHERE 过滤
+///
+/// sqlite-vec partition key（`*` 前缀）允许在 KNN 查询中使用 `=` 约束，
+/// 语法：`WHERE project_id = ? AND embedding MATCH ? AND k = N`（partition key 在前）。
 async fn search_via_vec0(
     pool: &SqlitePool,
     project_id: &str,
@@ -242,20 +260,20 @@ async fn search_via_vec0(
     top_k: usize,
 ) -> Result<Vec<RetrievedItem>, sqlx::Error> {
     let query_bytes = encode_embedding(query_embedding);
-
-    let rows: Vec<(String, String, f32)> = sqlx::query_as(
+    let sql = format!(
         "SELECT source_type, source_id, distance
          FROM embeddings_vec
          WHERE project_id = ?
            AND embedding MATCH ?
-           AND k = ?
-         ORDER BY distance",
-    )
-    .bind(project_id)
-    .bind(&query_bytes)
-    .bind(top_k as i64)
-    .fetch_all(pool)
-    .await?;
+           AND k = {}",
+        top_k
+    );
+
+    let rows: Vec<(String, String, f32)> = sqlx::query_as(&sql)
+        .bind(project_id)
+        .bind(&query_bytes)
+        .fetch_all(pool)
+        .await?;
 
     Ok(rows
         .into_iter()

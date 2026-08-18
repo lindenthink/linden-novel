@@ -192,15 +192,17 @@ pub async fn collect_context_with_rag_and_instruction(
                 exclude_element_ids,
                 ..Default::default()
             };
+            let rag_start = std::time::Instant::now();
             match rag::retrieve(pool, dir, &chapter.project_id, &query, &config).await {
                 Ok(rag_ctx) => {
                     tracing::info!(
-                        "RAG results: {} chapters, {} chunks, {} characters, {} storylines, {} worldviews",
+                        "RAG results: {} chapters, {} chunks, {} characters, {} storylines, {} worldviews (total {:?})",
                         rag_ctx.related_chapter_summaries.len(),
                         rag_ctx.related_chunks.len(),
                         rag_ctx.related_characters.len(),
                         rag_ctx.related_storylines.len(),
-                        rag_ctx.related_worldviews.len()
+                        rag_ctx.related_worldviews.len(),
+                        rag_start.elapsed()
                     );
                     let rendered = rag::render_rag_context(&rag_ctx);
                     if rendered.is_empty() {

@@ -97,6 +97,7 @@ pub async fn retrieve(
     }
 
     // 一次 embed，复用给摘要级 + 切片级检索，避免对同一 query 重复推理
+    let embed_start = std::time::Instant::now();
     let provider = crate::ai::provider_factory::get_local_embedder(app_data_dir)?;
     let query_vec = provider
         .embed(crate::ai::provider::EmbeddingRequest {
@@ -105,11 +106,29 @@ pub async fn retrieve(
         })
         .await?
         .vector;
+    tracing::info!("RAG query embedded: {} dims, {:?}", query_vec.len(), embed_start.elapsed());
 
-    // 摘要级搜索（top_k * 4 保证过滤后每类足够）
+    // 并行执行摘要级 + 切片级 vec0 查询
+    // 两者无依赖，串行会让总耗时 = summary_search + chunk_search
     let search_k = config.top_k.saturating_mul(4).max(config.top_k);
-    let results =
-        embedding_service::search_by_vector(pool, project_id, &query_vec, search_k).await?;
+    let search_start = std::time::Instant::now();
+    let (results, chunk_results) = tokio::join!(
+        embedding_service::search_by_vector(pool, project_id, &query_vec, search_k),
+        chunk_embedding_service::search_chunks_by_vector(
+            pool,
+            project_id,
+            &query_vec,
+            config.top_k * 2,
+            &config.exclude_chapter_ids,
+        ),
+    );
+    tracing::info!("RAG vector search done: {:?}", search_start.elapsed());
+
+    let results = results?;
+    let chunk_results = chunk_results.unwrap_or_else(|e| {
+        tracing::warn!("Chunk RAG skipped (continuing without): {}", e);
+        Vec::new()
+    });
 
     let mut chapter_hits: Vec<&RetrievedItem> = Vec::new();
     let mut character_hits: Vec<&RetrievedItem> = Vec::new();
@@ -154,103 +173,112 @@ pub async fn retrieve(
         }
     }
 
-    // 从 DB 加载完整内容
+    // 并行加载 chapter/character/storyline/worldview 详情（无依赖）
+    let detail_start = std::time::Instant::now();
+
+    let chapter_futs: Vec<_> = chapter_hits
+        .iter()
+        .map(|hit| async move {
+            chapter_repo::get(pool, &hit.source_id).await.ok().flatten().map(|ch| (ch, hit.score))
+        })
+        .collect();
+    let character_futs: Vec<_> = character_hits
+        .iter()
+        .map(|hit| async move {
+            character_repo::get(pool, &hit.source_id).await.ok().flatten().map(|c| (c, hit.score))
+        })
+        .collect();
+    let storyline_futs: Vec<_> = storyline_hits
+        .iter()
+        .map(|hit| async move {
+            storyline_repo::get(pool, &hit.source_id).await.ok().flatten().map(|s| (s, hit.score))
+        })
+        .collect();
+    let worldview_futs: Vec<_> = worldview_hits
+        .iter()
+        .map(|hit| async move {
+            worldview_repo::get(pool, &hit.source_id).await.ok().flatten().map(|w| (w, hit.score))
+        })
+        .collect();
+
+    let (chapter_res, character_res, storyline_res, worldview_res) = tokio::join!(
+        futures::future::join_all(chapter_futs),
+        futures::future::join_all(character_futs),
+        futures::future::join_all(storyline_futs),
+        futures::future::join_all(worldview_futs),
+    );
+
     let mut related_chapter_summaries = Vec::new();
-    for hit in chapter_hits {
-        if let Ok(Some(chapter)) = chapter_repo::get(pool, &hit.source_id).await {
-            if let Some(summary) = &chapter.summary {
-                if !summary.trim().is_empty() {
-                    related_chapter_summaries.push(RagChapterSummary {
-                        chapter_id: chapter.id,
-                        title: chapter.title,
-                        summary: summary.clone(),
-                        score: hit.score,
-                    });
-                }
+    for (chapter, score) in chapter_res.into_iter().flatten() {
+        if let Some(summary) = &chapter.summary {
+            if !summary.trim().is_empty() {
+                related_chapter_summaries.push(RagChapterSummary {
+                    chapter_id: chapter.id,
+                    title: chapter.title,
+                    summary: summary.clone(),
+                    score,
+                });
             }
         }
     }
 
     let mut related_characters = Vec::new();
-    for hit in character_hits {
-        if let Ok(Some(character)) = character_repo::get(pool, &hit.source_id).await {
-            related_characters.push(RagCharacter {
-                id: character.id,
-                name: character.name,
-                description: character.description,
-                score: hit.score,
-            });
-        }
+    for (character, score) in character_res.into_iter().flatten() {
+        related_characters.push(RagCharacter {
+            id: character.id,
+            name: character.name,
+            description: character.description,
+            score,
+        });
     }
 
     let mut related_storylines = Vec::new();
-    for hit in storyline_hits {
-        if let Ok(Some(storyline)) = storyline_repo::get(pool, &hit.source_id).await {
-            related_storylines.push(RagStoryline {
-                id: storyline.id,
-                name: storyline.name,
-                description: storyline.description,
-                score: hit.score,
-            });
-        }
+    for (storyline, score) in storyline_res.into_iter().flatten() {
+        related_storylines.push(RagStoryline {
+            id: storyline.id,
+            name: storyline.name,
+            description: storyline.description,
+            score,
+        });
     }
 
     let mut related_worldviews = Vec::new();
-    for hit in worldview_hits {
-        if let Ok(Some(worldview)) = worldview_repo::get(pool, &hit.source_id).await {
-            related_worldviews.push(RagWorldview {
-                id: worldview.id,
-                name: worldview.name,
-                description: worldview.description,
-                score: hit.score,
-            });
-        }
+    for (worldview, score) in worldview_res.into_iter().flatten() {
+        related_worldviews.push(RagWorldview {
+            id: worldview.id,
+            name: worldview.name,
+            description: worldview.description,
+            score,
+        });
     }
 
-    // 切片级检索（复用上面已计算的 query_vec，避免重复 embed）
-    // 失败仅告警：切片检索是锦上添花，不应阻塞主流程
-    let related_chunks = match chunk_embedding_service::search_chunks_by_vector(
-        pool,
-        project_id,
-        &query_vec,
-        config.top_k * 2,
-        &config.exclude_chapter_ids,
-    )
-    .await
-    {
-        Ok(chunks) => {
-            let mut out = Vec::with_capacity(chunks.len());
-            for c in chunks {
-                if c.score < config.min_score {
-                    continue;
-                }
-                // 跳过已不存在的章节（孤儿向量），避免已删内容泄漏进 prompt
-                let chapter = match chapter_repo::get(pool, &c.chapter_id).await {
-                    Ok(Some(ch)) => ch,
-                    _ => {
-                        tracing::warn!(
-                            "Skipping orphan chunk: chapter {} not found",
-                            c.chapter_id
-                        );
-                        continue;
-                    }
-                };
-                out.push(RagChunk {
-                    chapter_id: c.chapter_id,
-                    chunk_index: c.chunk_index,
-                    chapter_title: chapter.title,
-                    chunk_text: c.chunk_text,
-                    score: c.score,
-                });
+    tracing::info!("RAG detail load done: {:?}", detail_start.elapsed());
+
+    // 切片结果（已在外层并行查完，这里只做 chapter_title 回查）
+    let mut related_chunks = Vec::with_capacity(chunk_results.len());
+    for c in chunk_results {
+        if c.score < config.min_score {
+            continue;
+        }
+        let chapter = match chapter_repo::get(pool, &c.chapter_id).await {
+            Ok(Some(ch)) => ch,
+            _ => {
+                tracing::warn!(
+                    "Skipping orphan chunk: chapter {} not found",
+                    c.chapter_id
+                );
+                continue;
             }
-            out.truncate(config.top_k);
-            out
-        }
-        Err(e) => {
-            tracing::warn!("Chunk RAG skipped (continuing without): {}", e);
-            Vec::new()
-        }
-    };
+        };
+        related_chunks.push(RagChunk {
+            chapter_id: c.chapter_id,
+            chunk_index: c.chunk_index,
+            chapter_title: chapter.title,
+            chunk_text: c.chunk_text,
+            score: c.score,
+        });
+    }
+    related_chunks.truncate(config.top_k);
 
     Ok(RagContext {
         related_chapter_summaries,
