@@ -203,13 +203,25 @@ async function handleContextSelect(key: string) {
   try {
     // ---- 卷操作 ----
     if (key === "add-chapter" && node.volumeId) {
-      const title = `第 ${chapterStore.chapters.filter((c) => c.volume_id === node.volumeId).length + 1} 章`;
-      await chapterStore.createChapter(
-        node.volumeId,
-        projectStore.currentProject!.id,
-        title,
-      );
-      message.success("章节已创建");
+      const volId = node.volumeId;
+      const defaultTitle = `第 ${chapterStore.chapters.filter((c) => c.volume_id === volId).length + 1} 章`;
+      openTextInput("新建章节", defaultTitle, async (title) => {
+        try {
+          const ch = await chapterStore.createChapter(
+            volId,
+            projectStore.currentProject!.id,
+            title,
+          );
+          // 自动选中新章节，并在树中展开所在卷
+          if (!expandedKeys.value.includes(`vol-${volId}`)) {
+            expandedKeys.value = [...expandedKeys.value, `vol-${volId}`];
+          }
+          await chapterStore.setActiveChapter(ch.id);
+          message.success("章节已创建");
+        } catch (e: any) {
+          message.error(e?.message || "创建失败");
+        }
+      });
     }
 
     if (key === "rename-vol" && node.volumeId) {
