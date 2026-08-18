@@ -120,26 +120,16 @@ pub async fn remove_by_project(pool: &SqlitePool, project_id: &str) -> Result<()
     Ok(())
 }
 
-/// 向量搜索：根据 query 文本检索最相关的 top_k 个条目
+/// 向量搜索（直接接受 query 向量）
 ///
-/// 流程：query → embed → cosine search
-pub async fn search(
+/// 调用方负责先 embed query 文本，RAG 流程中复用同一向量给摘要级 + 切片级检索
+pub async fn search_by_vector(
     pool: &SqlitePool,
-    app_data_dir: &std::path::Path,
     project_id: &str,
-    query: &str,
+    query_embedding: &[f32],
     top_k: usize,
 ) -> Result<Vec<crate::models::embedding::RetrievedItem>, AppError> {
-    let provider = provider_factory::get_local_embedder(app_data_dir)?;
-
-    let request = EmbeddingRequest {
-        model: String::new(),
-        input: query.to_string(),
-    };
-
-    let response = provider.embed(request).await?;
-
-    let results = embedding_repo::search(pool, project_id, &response.vector, top_k).await?;
+    let results = embedding_repo::search(pool, project_id, query_embedding, top_k).await?;
     Ok(results)
 }
 

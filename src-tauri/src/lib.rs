@@ -90,17 +90,47 @@ pub fn run() {
                 TaskManager::run_worker(pool_clone, app_handle_clone, rx).await;
             });
 
-            // 后台下载嵌入模型（不阻塞应用启动，下载完成后嵌入功能自动可用）
-            let embedder_dir = app_data_dir.join("embedder_model");
+            // 后台下载嵌入模型（不阻塞应用启动），下载完成后立即预加载 + warm-up，
+            // 避免首次 RAG 查询时同步触发 OnceCell 初始化（约 19s 阻塞）
+            let app_data_dir_for_spawn = app_data_dir.clone();
             tauri::async_runtime::spawn(async move {
-                if ai::model_downloader::is_model_ready(&embedder_dir) {
+                let embedder_dir = app_data_dir_for_spawn.join("embedder_model");
+                if !ai::model_downloader::is_model_ready(&embedder_dir) {
+                    tracing::info!("开始后台下载嵌入模型...");
+                    match ai::model_downloader::ensure_model(&embedder_dir).await {
+                        Ok(_) => tracing::info!("嵌入模型下载完成"),
+                        Err(e) => {
+                            tracing::error!("嵌入模型下载失败: {}", e);
+                            return;
+                        }
+                    }
+                } else {
                     tracing::info!("嵌入模型已就绪，跳过下载");
-                    return;
                 }
-                tracing::info!("开始后台下载嵌入模型...");
-                match ai::model_downloader::ensure_model(&embedder_dir).await {
-                    Ok(_) => tracing::info!("嵌入模型下载完成"),
-                    Err(e) => tracing::error!("嵌入模型下载失败: {}", e),
+
+                // 预加载 embedder（触发 OnceCell 初始化，Embedder::load 在 spawn_blocking 中执行避免阻塞 runtime）
+                let dir_for_init = app_data_dir_for_spawn.clone();
+                let init_result = tokio::task::spawn_blocking(move || {
+                    ai::provider_factory::get_local_embedder(&dir_for_init)
+                })
+                .await;
+
+                match init_result {
+                    Ok(Ok(provider)) => {
+                        // warm-up：跑一次 embed 触发推理图 JIT 优化，避免首次 RAG 查询慢
+                        match provider
+                            .embed(ai::provider::EmbeddingRequest {
+                                model: String::new(),
+                                input: "预热嵌入模型".to_string(),
+                            })
+                            .await
+                        {
+                            Ok(_) => tracing::info!("嵌入模型预加载 + warm-up 完成"),
+                            Err(e) => tracing::warn!("嵌入模型 warm-up 失败: {}", e),
+                        }
+                    }
+                    Ok(Err(e)) => tracing::warn!("嵌入模型预加载失败: {}", e),
+                    Err(e) => tracing::warn!("嵌入模型预加载 spawn_blocking 失败: {}", e),
                 }
             });
 

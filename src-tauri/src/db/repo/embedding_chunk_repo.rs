@@ -225,20 +225,36 @@ async fn search_via_vec0(
         })
         .collect();
 
-    // 取 top_k，然后补 chunk_text 内容（从权威表）
+    // 取 top_k，然后补 chunk_text 内容（批量查询避免 N+1）
     scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
     scored.truncate(top_k);
 
-    for item in &mut scored {
-        if let Ok(row) = sqlx::query_as::<_, EmbeddingChunkRow>(
-            "SELECT * FROM embedding_chunks WHERE chapter_id = ? AND chunk_index = ?",
-        )
-        .bind(&item.chapter_id)
-        .bind(item.chunk_index)
-        .fetch_one(pool)
-        .await
-        {
-            item.chunk_text = row.chunk_text;
+    if !scored.is_empty() {
+        // 构造 WHERE (chapter_id = ? AND chunk_index = ?) OR ... 一次性取回所有命中
+        let mut qb = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+            "SELECT chapter_id, chunk_index, chunk_text FROM embedding_chunks WHERE ",
+        );
+        let mut sep = qb.separated(" OR ");
+        for item in &scored {
+            sep.push("(chapter_id = ")
+                .push_bind(item.chapter_id.clone())
+                .push(" AND chunk_index = ")
+                .push_bind(item.chunk_index)
+                .push(")");
+        }
+
+        let rows: Vec<(String, i32, String)> = qb.build_query_as().fetch_all(pool).await?;
+
+        // 建立 (chapter_id, chunk_index) -> chunk_text 映射后批量回填
+        let mut text_map: std::collections::HashMap<(String, i32), String> =
+            std::collections::HashMap::with_capacity(rows.len());
+        for (cid, idx, text) in rows {
+            text_map.insert((cid, idx), text);
+        }
+        for item in &mut scored {
+            if let Some(text) = text_map.get(&(item.chapter_id.clone(), item.chunk_index)) {
+                item.chunk_text = text.clone();
+            }
         }
     }
 

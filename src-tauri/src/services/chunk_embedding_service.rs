@@ -2,7 +2,7 @@ use sqlx::SqlitePool;
 use std::path::Path;
 
 use crate::ai::chunker::{chunk_text, ChunkConfig};
-use crate::ai::provider::{BatchEmbeddingRequest, EmbeddingRequest};
+use crate::ai::provider::BatchEmbeddingRequest;
 use crate::ai::provider_factory;
 use crate::db::repo::embedding_chunk_repo;
 use crate::error::AppError;
@@ -159,31 +159,20 @@ pub async fn embed_project(
     Ok(total)
 }
 
-/// 切片级语义检索（对外服务接口）
-pub async fn search_chunks(
+/// 切片级语义检索（直接接受 query 向量）
+///
+/// 调用方负责先 embed query 文本，RAG 流程中复用同一向量给摘要级 + 切片级检索
+pub async fn search_chunks_by_vector(
     pool: &SqlitePool,
-    app_data_dir: &Path,
     project_id: &str,
-    query: &str,
+    query_embedding: &[f32],
     top_k: usize,
     exclude_chapter_ids: &[String],
 ) -> Result<Vec<RetrievedChunk>, AppError> {
-    if query.trim().is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let provider = provider_factory::get_local_embedder(app_data_dir)?;
-    let resp = provider
-        .embed(EmbeddingRequest {
-            model: String::new(),
-            input: query.to_string(),
-        })
-        .await?;
-
     let results = embedding_chunk_repo::search(
         pool,
         project_id,
-        &resp.vector,
+        query_embedding,
         top_k,
         exclude_chapter_ids,
     )

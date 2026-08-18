@@ -96,10 +96,20 @@ pub async fn retrieve(
         });
     }
 
+    // 一次 embed，复用给摘要级 + 切片级检索，避免对同一 query 重复推理
+    let provider = crate::ai::provider_factory::get_local_embedder(app_data_dir)?;
+    let query_vec = provider
+        .embed(crate::ai::provider::EmbeddingRequest {
+            model: String::new(),
+            input: query.to_string(),
+        })
+        .await?
+        .vector;
+
     // 摘要级搜索（top_k * 4 保证过滤后每类足够）
     let search_k = config.top_k.saturating_mul(4).max(config.top_k);
     let results =
-        embedding_service::search(pool, app_data_dir, project_id, query, search_k).await?;
+        embedding_service::search_by_vector(pool, project_id, &query_vec, search_k).await?;
 
     let mut chapter_hits: Vec<&RetrievedItem> = Vec::new();
     let mut character_hits: Vec<&RetrievedItem> = Vec::new();
@@ -197,13 +207,12 @@ pub async fn retrieve(
         }
     }
 
-    // 切片级检索（独立调用 chunk_embedding_service::search_chunks）
+    // 切片级检索（复用上面已计算的 query_vec，避免重复 embed）
     // 失败仅告警：切片检索是锦上添花，不应阻塞主流程
-    let related_chunks = match chunk_embedding_service::search_chunks(
+    let related_chunks = match chunk_embedding_service::search_chunks_by_vector(
         pool,
-        app_data_dir,
         project_id,
-        query,
+        &query_vec,
         config.top_k * 2,
         &config.exclude_chapter_ids,
     )
