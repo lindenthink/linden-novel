@@ -191,7 +191,7 @@ async function onBatchGenerate() {
   dialog.warning({
     title: "确认批量生成",
     content:
-      "将为项目内所有章节逐一调用 AI 生成实体快照，可能耗时较长且消耗较多 Token，确定继续吗？",
+      "将为项目内所有摘要为空的章节逐一调用 AI 生成实体快照，确定继续吗？",
     positiveText: "继续生成",
     negativeText: "取消",
     onPositiveClick: async () => {
