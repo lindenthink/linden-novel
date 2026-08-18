@@ -6,7 +6,7 @@ use tokio::sync::Mutex;
 
 use crate::ai::provider::{
     AiProvider, BatchEmbeddingRequest, BatchEmbeddingResponse, CompletionRequest,
-    CompletionResponse, EmbeddingRequest, EmbeddingResponse, StreamChunk,
+    CompletionResponse, EmbeddingRequest, EmbeddingResponse, StreamChunkStream,
 };
 use crate::error::AppError;
 
@@ -76,8 +76,7 @@ impl AiProvider for LocalEmbedder {
     async fn complete_stream(
         &self,
         _request: CompletionRequest,
-    ) -> Result<Box<dyn Iterator<Item = Result<StreamChunk, AppError>> + Send>, AppError>
-    {
+    ) -> Result<StreamChunkStream, AppError> {
         Err(AppError::Validation(
             "Local embedder does not support streaming".into(),
         ))

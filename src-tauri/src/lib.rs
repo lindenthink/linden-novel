@@ -205,6 +205,7 @@ pub fn run() {
             commands::ai_complete::ai_complete_stream,
             // ai_generation
             commands::ai_generation::ai_generate,
+            commands::ai_generation::ai_generate_stream,
             commands::ai_generation::list_ai_generation_history,
             commands::ai_generation::get_ai_generation_history,
             commands::ai_generation::delete_ai_generation_history,

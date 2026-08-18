@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
-import { NModal, NSelect, NInput, NInputNumber, NButton, NSpace, NAlert, NSpin, NTag, NPopconfirm, useMessage } from 'naive-ui';
+import { NModal, NSelect, NInput, NInputNumber, NButton, NSpace, NAlert, NSpin, NTag, NPopconfirm, NCollapse, NCollapseItem, useMessage } from 'naive-ui';
 import { useAiGenerationStore } from '../../stores/ai_generation';
 import { useChapterStore } from '../../stores/chapter';
 import { useEditorUI, type AIGenerationMode } from '../../composables/useEditorUI';
@@ -20,6 +20,36 @@ const aiGenerationStore = useAiGenerationStore();
 const chapterStore = useChapterStore();
 const { aiGenerationDefaultMode } = useEditorUI();
 const message = useMessage();
+
+// 推理过程折叠状态：默认展开，便于实时观察
+const reasoningExpanded = ref<string[]>(['reasoning']);
+
+// 内容区 ref：用于流式追加时自动滚动到底部
+const reasoningContentRef = ref<HTMLElement | null>(null);
+const resultContentRef = ref<HTMLElement | null>(null);
+
+// 流式内容追加时自动滚动到底部（推理过程 / 正文）
+watch(
+  () => aiGenerationStore.streamReasoning,
+  async () => {
+    await nextTick();
+    const el = reasoningContentRef.value;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  },
+);
+
+watch(
+  () => aiGenerationStore.streamContent,
+  async () => {
+    await nextTick();
+    const el = resultContentRef.value;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  },
+);
 
 // 表单数据
 const form = ref<GenerateRequest>({
@@ -73,12 +103,12 @@ watch(
   }
 );
 
-// 生成
+// 生成（流式：首 token 即实时追加显示）
 async function handleGenerate() {
   if (!canGenerate.value) return;
-  
+
   try {
-    await aiGenerationStore.generate(form.value);
+    await aiGenerationStore.generateStream(form.value);
   } catch (e) {
     console.error('生成失败:', e);
   }
@@ -205,11 +235,43 @@ function formatTime(time: string): string {
 
       <!-- 右侧：生成结果和历史 -->
       <div class="generation-result">
-        <!-- 当前生成结果 -->
-        <div v-if="aiGenerationStore.currentGeneration" class="current-result">
+        <!-- 推理过程（DeepSeek thinking 模式，仅在有推理内容时显示） -->
+        <div
+          v-if="aiGenerationStore.streamReasoning || aiGenerationStore.reasoningActive"
+          class="reasoning-section"
+        >
+          <NCollapse v-model:expanded-names="reasoningExpanded" :default-expanded-names="['reasoning']">
+            <NCollapseItem name="reasoning">
+              <template #header>
+                <span class="reasoning-title">
+                  推理过程
+                  <span v-if="aiGenerationStore.reasoningActive" class="reasoning-hint">
+                    思考中<span class="cursor-blink">▌</span>
+                  </span>
+                  <span v-else class="reasoning-done-hint">已完成</span>
+                </span>
+              </template>
+              <div ref="reasoningContentRef" class="reasoning-content">
+                {{ aiGenerationStore.streamReasoning }}
+                <span v-if="aiGenerationStore.reasoningActive" class="cursor-blink">▌</span>
+              </div>
+            </NCollapseItem>
+          </NCollapse>
+        </div>
+
+        <!-- 当前生成结果 / 流式实时输出 -->
+        <div
+          v-if="aiGenerationStore.currentGeneration || aiGenerationStore.streaming || aiGenerationStore.streamContent"
+          class="current-result"
+        >
           <div class="result-header">
-            <span class="result-title">生成结果</span>
+            <span class="result-title">
+              生成结果
+              <span v-if="aiGenerationStore.streaming && !aiGenerationStore.reasoningActive" class="streaming-hint">生成中…</span>
+              <span v-else-if="aiGenerationStore.reasoningActive" class="streaming-hint">推理中…</span>
+            </span>
             <NButton
+              v-if="aiGenerationStore.currentGeneration && !aiGenerationStore.streaming"
               type="primary"
               size="small"
               @click="handleApply"
@@ -217,8 +279,10 @@ function formatTime(time: string): string {
               应用到编辑器
             </NButton>
           </div>
-          <div class="result-content">
-            {{ aiGenerationStore.currentGeneration.content }}
+          <div ref="resultContentRef" class="result-content">
+            <!-- 流式过程中显示 streamContent；流结束后显示 currentGeneration.content -->
+            {{ aiGenerationStore.streaming ? aiGenerationStore.streamContent : aiGenerationStore.currentGeneration?.content }}
+            <span v-if="aiGenerationStore.streaming && !aiGenerationStore.reasoningActive" class="cursor-blink">▌</span>
           </div>
         </div>
 
@@ -359,6 +423,67 @@ function formatTime(time: string): string {
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.streaming-hint {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: normal;
+  color: #18a058;
+}
+
+.cursor-blink {
+  display: inline-block;
+  color: #18a058;
+  animation: blink 1s step-start infinite;
+  margin-left: 1px;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* 推理过程折叠区 */
+.reasoning-section {
+  padding-top: 12px;
+  padding-left: 5px;
+  margin-bottom: 12px;
+  border: 1px solid var(--n-border-color, #e0e0e6);
+  border-radius: 4px;
+  background: var(--n-color, #fafafc);
+}
+
+.reasoning-title {
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reasoning-hint {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #f0a020;
+  display: inline-flex;
+  align-items: center;
+}
+
+.reasoning-done-hint {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.reasoning-content {
+  max-height: 280px;
+  overflow-y: auto;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #6b7280;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 4px 8px 8px 8px;
 }
 
 .history-section {

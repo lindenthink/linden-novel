@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tauri::{AppHandle, Emitter, Manager, State};
+use futures::StreamExt;
 
 use crate::ai::provider::{CompletionRequest, Message};
 use crate::ai::provider_factory;
@@ -161,13 +162,18 @@ pub async fn ai_complete_stream(
         stream: true,
     };
 
-    // 调用 AI 流式接口
-    let stream = ai_provider.complete_stream(completion_request).await?;
+    // 调用 AI 流式接口（真流式：边收边发，首 token 即推送）
+    let mut stream = ai_provider.complete_stream(completion_request).await?;
 
-    // 发送流式事件
-    for chunk_result in stream {
+    // 发送流式事件（reasoning 走单独通道，content 走 ai-stream-chunk）
+    while let Some(chunk_result) = stream.next().await {
         match chunk_result {
             Ok(chunk) => {
+                if !chunk.reasoning.is_empty() {
+                    app.emit("ai-stream-reasoning", &chunk.reasoning).map_err(|e| {
+                        AppError::Internal(format!("Failed to emit stream reasoning: {}", e))
+                    })?;
+                }
                 let event = StreamChunkEvent {
                     content: chunk.content,
                     done: chunk.done,

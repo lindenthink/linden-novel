@@ -77,6 +77,7 @@ pub async fn sse_stream_to_chunks(
                                             chunks.push(Ok(StreamChunk {
                                                 content: content.to_string(),
                                                 done: false,
+                                                reasoning: String::new(),
                                             }));
                                         }
                                     }
@@ -85,6 +86,7 @@ pub async fn sse_stream_to_chunks(
                                     chunks.push(Ok(StreamChunk {
                                         content: String::new(),
                                         done: true,
+                                        reasoning: String::new(),
                                     }));
                                 }
                                 SseEvent::Error(msg) => {

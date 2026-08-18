@@ -7,7 +7,7 @@ use futures::stream::StreamExt;
 
 use crate::ai::provider::{
     AiProvider, BatchEmbeddingRequest, BatchEmbeddingResponse, CompletionRequest,
-    CompletionResponse, EmbeddingRequest, EmbeddingResponse, StreamChunk, Usage,
+    CompletionResponse, EmbeddingRequest, EmbeddingResponse, StreamChunk, StreamChunkStream, Usage,
 };
 use crate::error::AppError;
 
@@ -99,6 +99,9 @@ struct OpenAiStreamChoice {
 #[derive(Deserialize)]
 struct OpenAiStreamDelta {
     content: Option<String>,
+    /// DeepSeek reasoning 模型的推理过程（V3+ thinking 模式输出）
+    #[serde(default)]
+    reasoning_content: Option<String>,
 }
 
 // --- Embeddings API structs ---
@@ -210,7 +213,7 @@ impl AiProvider for OpenAiProvider {
     async fn complete_stream(
         &self,
         request: CompletionRequest,
-    ) -> Result<Box<dyn Iterator<Item = Result<StreamChunk, AppError>> + Send>, AppError> {
+    ) -> Result<StreamChunkStream, AppError> {
         let url = self.build_url("/chat/completions");
 
         tracing::info!(
@@ -220,7 +223,7 @@ impl AiProvider for OpenAiProvider {
             stream = true,
             "AI complete stream request"
         );
-        
+
         let openai_req = OpenAiRequest {
             model: request.model.clone(),
             messages: request.messages.into_iter().map(|m| OpenAiMessage {
@@ -253,45 +256,91 @@ impl AiProvider for OpenAiProvider {
 
         tracing::info!(provider = %self.name, model = %request.model, "AI stream response started");
 
-        let stream = response.bytes_stream();
-        let buffer = Arc::new(Mutex::new(String::new()));
-        let stream_clone = stream;
-
-        let chunk_stream = stream_clone
-            .map(move |chunk_result| {
-                let buffer = buffer.clone();
+        // 真流式：用 then + flatten 把字节流逐步解析为 StreamChunk 流
+        // 不再 collect 成 Vec，首 token 到达即向前端推送
+        //
+        // 字节缓冲：累积原始字节，按 UTF-8 字符边界安全切分，
+        // 避免多字节字符（中文 3 字节）被 chunk 边界切断后变乱码
+        let byte_buffer = Arc::new(Mutex::new(Vec::<u8>::new()));
+        let sse_buffer = Arc::new(Mutex::new(String::new()));
+        let chunk_stream = response
+            .bytes_stream()
+            .then(move |chunk_result| {
+                let byte_buffer = byte_buffer.clone();
+                let sse_buffer = sse_buffer.clone();
                 async move {
                     match chunk_result {
                         Ok(bytes) => {
-                            let text = String::from_utf8_lossy(&bytes).to_string();
-                            let mut buf = buffer.lock().await;
+                            // 累积原始字节
+                            let mut byte_buf = byte_buffer.lock().await;
+                            byte_buf.extend_from_slice(&bytes);
+
+                            // 按 UTF-8 字符边界安全切分：只解码完整字符，残缺字节保留
+                            let safe_end = match std::str::from_utf8(&byte_buf) {
+                                Ok(_) => byte_buf.len(),
+                                Err(e) => e.valid_up_to(),
+                            };
+                            if safe_end == 0 {
+                                // 当前缓冲全是残缺字节（罕见），等下一 chunk
+                                drop(byte_buf);
+                                return futures::stream::iter(
+                                    Vec::<Result<StreamChunk, AppError>>::new(),
+                                );
+                            }
+                            let text = String::from_utf8_lossy(&byte_buf[..safe_end]).to_string();
+                            // 保留不完整字节给下一 chunk
+                            let remaining = byte_buf[safe_end..].to_vec();
+                            *byte_buf = remaining;
+                            drop(byte_buf);
+
+                            // SSE 块解析（跨 chunk 的 \n\n 边界由 sse_buffer 保留）
+                            let mut buf = sse_buffer.lock().await;
                             buf.push_str(&text);
-                            
-                            let mut chunks = Vec::new();
+
+                            let mut chunks: Vec<Result<StreamChunk, AppError>> = Vec::new();
                             while let Some(pos) = buf.find("\n\n") {
-                                let line = buf[..pos].to_string();
+                                let block = buf[..pos].to_string();
                                 *buf = buf[pos + 2..].to_string();
-                                
-                                for line in line.lines() {
-                                    if line.starts_with("data: ") {
-                                        let data = &line[6..];
+
+                                for line in block.lines() {
+                                    if let Some(data) = line.strip_prefix("data: ") {
                                         if data == "[DONE]" {
                                             chunks.push(Ok(StreamChunk {
                                                 content: String::new(),
                                                 done: true,
+                                                reasoning: String::new(),
                                             }));
-                                        } else if let Ok(chunk) = serde_json::from_str::<OpenAiStreamChunk>(data) {
+                                        } else if let Ok(chunk) =
+                                            serde_json::from_str::<OpenAiStreamChunk>(data)
+                                        {
                                             if let Some(choice) = chunk.choices.first() {
+                                                // 推理过程增量（DeepSeek thinking 模式）
+                                                if let Some(reasoning) =
+                                                    &choice.delta.reasoning_content
+                                                {
+                                                    if !reasoning.is_empty() {
+                                                        chunks.push(Ok(StreamChunk {
+                                                            content: String::new(),
+                                                            done: false,
+                                                            reasoning: reasoning.clone(),
+                                                        }));
+                                                    }
+                                                }
+                                                // 正文内容增量
                                                 if let Some(content) = &choice.delta.content {
-                                                    chunks.push(Ok(StreamChunk {
-                                                        content: content.clone(),
-                                                        done: false,
-                                                    }));
+                                                    if !content.is_empty() {
+                                                        chunks.push(Ok(StreamChunk {
+                                                            content: content.clone(),
+                                                            done: false,
+                                                            reasoning: String::new(),
+                                                        }));
+                                                    }
                                                 }
                                                 if choice.finish_reason.is_some() {
                                                     chunks.push(Ok(StreamChunk {
                                                         content: String::new(),
                                                         done: true,
+                                                        reasoning: String::new(),
                                                     }));
                                                 }
                                             }
@@ -299,18 +348,21 @@ impl AiProvider for OpenAiProvider {
                                     }
                                 }
                             }
-                            chunks
+                            drop(buf);
+                            futures::stream::iter(chunks)
                         }
-                        Err(e) => vec![Err(AppError::Internal(format!("Stream error: {}", e)))],
+                        Err(e) => {
+                            futures::stream::iter(vec![Err(AppError::Internal(format!(
+                                "Stream error: {}",
+                                e
+                            )))])
+                        }
                     }
                 }
             })
-            .buffer_unordered(1)
-            .flat_map(futures::stream::iter)
-            .collect::<Vec<_>>()
-            .await;
+            .flatten();
 
-        Ok(Box::new(chunk_stream.into_iter()))
+        Ok(Box::pin(chunk_stream))
     }
 
     async fn embed(&self, request: EmbeddingRequest) -> Result<EmbeddingResponse, AppError> {
