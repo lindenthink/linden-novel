@@ -70,6 +70,27 @@ const editor = useEditor({
   },
 });
 
+// 将 activeContent 同步到编辑器实例
+function syncContentToEditor() {
+  if (!editor.value) return;
+  const content = chapterStore.activeContent;
+  if (!content) return;
+
+  suppressOnUpdate = true;
+  try {
+    const json = JSON.parse(content.content_json);
+    editor.value.commands.setContent(json);
+  } catch {
+    try {
+      editor.value.commands.setContent(content.content_text || "");
+    } catch {
+      // 编辑器视图可能尚未就绪，忽略
+    }
+  } finally {
+    suppressOnUpdate = false;
+  }
+}
+
 // 监听编辑器事件 — 用 watch + immediate 确保编辑器实例就绪后再注册
 watch(
   editor,
@@ -112,6 +133,10 @@ watch(
     ed.on("blockHandleClick" as any, handleBlockClick);
     ed.on("aiAction" as any, handleAIAction);
 
+    // 编辑器就绪后同步一次 activeContent
+    // 解决首次进入时 activeContent 的 immediate watch 早于 editor 实例化导致内容未渲染的问题
+    syncContentToEditor();
+
     onCleanup(() => {
       ed.off("blockHandleClick" as any, handleBlockClick);
       ed.off("aiAction" as any, handleAIAction);
@@ -123,22 +148,8 @@ watch(
 // 监听 activeContent 变化，同步到编辑器
 watch(
   () => chapterStore.activeContent,
-  (content) => {
-    if (!editor.value || !content) return;
-
-    suppressOnUpdate = true;
-    try {
-      const json = JSON.parse(content.content_json);
-      editor.value.commands.setContent(json);
-    } catch {
-      try {
-        editor.value.commands.setContent(content.content_text || "");
-      } catch {
-        // 编辑器视图可能尚未就绪，忽略
-      }
-    } finally {
-      suppressOnUpdate = false;
-    }
+  () => {
+    syncContentToEditor();
   },
   { immediate: true }
 );
