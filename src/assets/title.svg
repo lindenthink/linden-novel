@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 56">
+  <!-- 左侧卷轴轴 -->
+  <rect x="3" y="10" width="4" height="36" rx="2" fill="#18a058" opacity="0.8"/>
+  <!-- 左侧卷轴装饰头 -->
+  <circle cx="5" cy="10" r="3.5" fill="#18a058" opacity="0.6"/>
+  <circle cx="5" cy="46" r="3.5" fill="#18a058" opacity="0.6"/>
+
+  <!-- 右侧卷轴轴 -->
+  <rect x="153" y="10" width="4" height="36" rx="2" fill="#18a058" opacity="0.8"/>
+  <!-- 右侧卷轴装饰头 -->
+  <circle cx="155" cy="10" r="3.5" fill="#18a058" opacity="0.6"/>
+  <circle cx="155" cy="46" r="3.5" fill="#18a058" opacity="0.6"/>
+
+  <!-- 卷面背景 -->
+  <rect x="9" y="12" width="142" height="32" rx="2" fill="rgba(24, 144, 255, 0.05)" stroke="#18a058" stroke-width="1" opacity="0.5"/>
+
+  <!-- 左上拐角：回纹 -->
+  <g stroke="#18a058" stroke-width="1" fill="none" opacity="0.5">
+    <path d="M12 16 L12 14 L16 14 L16 18 L14 18 L14 16"/>
+    <path d="M18 16 L18 14 L22 14"/>
+    <path d="M12 22 L12 20 L14 20"/>
+  </g>
+
+  <!-- 右上拐角：回纹（镜像） -->
+  <g stroke="#18a058" stroke-width="1" fill="none" opacity="0.5">
+    <path d="M148 16 L148 14 L144 14 L144 18 L146 18 L146 16"/>
+    <path d="M142 16 L142 14 L138 14"/>
+    <path d="M148 22 L148 20 L146 20"/>
+  </g>
+
+  <!-- 左下拐角：回纹（垂直翻转） -->
+  <g stroke="#18a058" stroke-width="1" fill="none" opacity="0.5">
+    <path d="M12 40 L12 42 L16 42 L16 38 L14 38 L14 40"/>
+    <path d="M18 40 L18 42 L22 42"/>
+    <path d="M12 34 L12 36 L14 36"/>
+  </g>
+
+  <!-- 右下拐角：回纹（镜像+垂直翻转） -->
+    <g stroke="#18a058" stroke-width="1" fill="none" opacity="0.5">
+      <path d="M148 40 L148 42 L144 42 L144 38 L146 38 L146 40"/>
+      <path d="M142 40 L142 42 L138 42"/>
+      <path d="M148 34 L148 36 L146 36"/>
+    </g>
+
+  <!-- 菩提思 文字 -->
+  <text x="80" y="38" text-anchor="middle" font-family="'STKaiti', 'KaiTi', 'SimKaiti', 'Microsoft YaHei', serif" font-size="30" fill="#18a058" font-weight="bold" letter-spacing="6">菩提思</text>
+</svg>
