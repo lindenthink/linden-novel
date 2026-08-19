@@ -20,7 +20,6 @@ import {
 import { useProjectStore } from "../stores/project";
 import { importProject } from "../api/io";
 import ProjectCard from "../components/common/ProjectCard.vue";
-import logoUrl from "../assets/logo.png";
 
 const router = useRouter();
 const projectStore = useProjectStore();
@@ -179,8 +178,13 @@ onMounted(() => {
     >
       <div class="max-w-6xl mx-auto flex items-center justify-between">
         <div class="flex items-center gap-3">
+          <img
+            src="../assets/logo.png"
+            alt="菩提思"
+            class="w-12 h-12 rounded-lg object-contain"
+          />
           <div class="flex flex-col leading-tight">
-            <img src="../assets/title.svg" alt="菩提思" class="h-10 w-auto" />
+            <h1 class="text-xl font-bold text-linden-primary">菩提思</h1>
             <span class="text-xs font-normal text-gray-400 dark:text-gray-500">助你文思泉涌，妙笔生花</span>
           </div>
         </div>
@@ -203,15 +207,7 @@ onMounted(() => {
     </header>
 
     <!-- 项目列表 -->
-    <main
-      class="max-w-6xl mx-auto px-6 py-10 relative min-h-[calc(100vh-80px)]"
-      :style="{
-        backgroundImage: `url(${logoUrl})`,
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center 18%',
-        backgroundSize: 'auto min(420px, 55vh)',
-      }"
-    >
+    <main class="max-w-6xl mx-auto px-6 py-6">
       <NSpin :show="projectStore.loading">
         <NEmpty
           v-if="!projectStore.loading && projectStore.projects.length === 0"
@@ -232,7 +228,6 @@ onMounted(() => {
           :y-gap="16"
           responsive="screen"
           item-responsive
-          class="opacity-90"
         >
           <NGi
             v-for="project in projectStore.projects"

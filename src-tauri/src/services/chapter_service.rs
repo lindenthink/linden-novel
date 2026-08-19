@@ -12,6 +12,13 @@ pub async fn list_by_volume(pool: &SqlitePool, volume_id: &str) -> Result<Vec<Ch
         .map_err(AppError::from)
 }
 
+/// 一次性查询项目下所有章节（按卷顺序 + 章节顺序排序）
+pub async fn list_by_project(pool: &SqlitePool, project_id: &str) -> Result<Vec<Chapter>, AppError> {
+    chapter_repo::list_by_project(pool, project_id)
+        .await
+        .map_err(AppError::from)
+}
+
 pub async fn get(pool: &SqlitePool, id: &str) -> Result<Chapter, AppError> {
     chapter_repo::get(pool, id)
         .await?

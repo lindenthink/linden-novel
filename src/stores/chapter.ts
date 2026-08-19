@@ -32,6 +32,12 @@ export const useChapterStore = defineStore("chapter", () => {
     chapters.value.push(...list);
   }
 
+  /** 一次性加载项目下所有章节（替代多次 fetchChapters 串行调用） */
+  async function fetchAllChapters(projectId: string) {
+    const list = await api.listChaptersByProject(projectId);
+    chapters.value = list;
+  }
+
   async function createChapter(volumeId: string, projectId: string, title: string) {
     const ch = await api.createChapter({ volume_id: volumeId, project_id: projectId, title });
     chapters.value.push(ch);
@@ -68,14 +74,15 @@ export const useChapterStore = defineStore("chapter", () => {
   // ---- Active chapter + content ----
 
   /** 切换活跃章：先 flush 当前脏数据，再加载新章 */
-  async function setActiveChapter(chapterId: string) {
+  async function setActiveChapter(chapterId: string, preloadedContent?: ChapterContent | null) {
     if (dirty.value && activeChapterId.value) {
       await flushSave();
     }
     activeChapterId.value = chapterId;
     const ch = chapters.value.find((c) => c.id === chapterId);
     wordCount.value = ch?.word_count ?? 0;
-    activeContent.value = await api.getChapterContent(chapterId);
+    // 支持传入预加载的内容，避免首次进入时的额外 IPC 往返
+    activeContent.value = preloadedContent ?? await api.getChapterContent(chapterId);
     dirty.value = false;
   }
 
@@ -123,6 +130,7 @@ export const useChapterStore = defineStore("chapter", () => {
     wordCount,
     clearChapters,
     fetchChapters,
+    fetchAllChapters,
     createChapter,
     updateChapterMeta,
     deleteChapter,

@@ -14,6 +14,16 @@ pub async fn list_chapters(
     chapter_service::list_by_volume(&pool, &volume_id).await
 }
 
+/// 一次性查询项目下所有章节（按卷顺序 + 章节顺序排序）
+/// 用于编辑器首次加载，替代多次 list_chapters 调用
+#[tauri::command]
+pub async fn list_chapters_by_project(
+    pool: State<'_, SqlitePool>,
+    project_id: String,
+) -> Result<Vec<Chapter>, AppError> {
+    chapter_service::list_by_project(&pool, &project_id).await
+}
+
 #[tauri::command]
 pub async fn get_chapter(pool: State<'_, SqlitePool>, id: String) -> Result<Chapter, AppError> {
     chapter_service::get(&pool, &id).await

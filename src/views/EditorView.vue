@@ -9,6 +9,8 @@ import { useLongContext } from "../composables/useLongContext";
 import { useEditorUI } from "../composables/useEditorUI";
 import { useTaskCenter } from "../composables/useTaskCenter";
 import { exportProject } from "../api/io";
+import { getChapterContent } from "../api/chapter";
+import type { ChapterContent } from "../types";
 import ThreeColumnLayout from "../components/layout/ThreeColumnLayout.vue";
 import ChapterTree from "../components/layout/ChapterTree.vue";
 import RightSidebar from "../components/layout/RightSidebar.vue";
@@ -37,18 +39,31 @@ const projectId = route.params.id as string;
 async function loadProject() {
   try {
     chapterStore.clearChapters();
-    await projectStore.selectProject(projectId);
-    // 加载所有卷的章节
-    for (const vol of projectStore.volumes) {
-      await chapterStore.fetchChapters(vol.id);
-    }
-    // 恢复上次编辑的章节
     const lastChapterId = localStorage.getItem(`linden:lastChapter:${projectId}`);
+
+    // 并行加载三件事：
+    //   1) 项目信息 + 卷列表（selectProject）
+    //   2) 项目所有章节（一次 IPC 替代每卷一次串行调用）
+    //   3) 上次编辑章节的正文内容（避免 setActiveChapter 时再次 IPC 往返）
+    const preloadedContentPromise: Promise<ChapterContent | null> = lastChapterId
+      ? getChapterContent(lastChapterId).catch(() => null)
+      : Promise.resolve(null);
+
+    await Promise.all([
+      projectStore.selectProject(projectId),
+      chapterStore.fetchAllChapters(projectId),
+      preloadedContentPromise,
+    ]);
+
+    // 恢复上次编辑的章节（使用预加载的内容）
     if (lastChapterId && chapterStore.chapters.some((c) => c.id === lastChapterId)) {
-      await chapterStore.setActiveChapter(lastChapterId);
+      await chapterStore.setActiveChapter(lastChapterId, await preloadedContentPromise);
     }
-    // 初始化任务中心：拉取历史任务 + 启动事件监听
-    await initTaskCenter(projectId);
+
+    // 任务中心初始化放后台，不阻塞编辑器渲染
+    initTaskCenter(projectId).catch((e) => {
+      console.warn("Task center init failed:", e);
+    });
   } catch (e: any) {
     message.error(e?.message || "加载项目失败");
     router.replace({ name: "home" });

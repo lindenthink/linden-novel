@@ -7,6 +7,11 @@ export async function listChapters(volumeId: string): Promise<Chapter[]> {
   return invoke<Chapter[]>("list_chapters", { volumeId });
 }
 
+/** 一次性查询项目下所有章节（按卷顺序 + 章节顺序排序） */
+export async function listChaptersByProject(projectId: string): Promise<Chapter[]> {
+  return invoke<Chapter[]>("list_chapters_by_project", { projectId });
+}
+
 export async function getChapter(id: string): Promise<Chapter> {
   return invoke<Chapter>("get_chapter", { id });
 }

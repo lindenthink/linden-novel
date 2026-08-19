@@ -152,6 +152,7 @@ pub fn run() {
             commands::volume::reorder_volumes,
             // chapter + content
             commands::chapter::list_chapters,
+            commands::chapter::list_chapters_by_project,
             commands::chapter::get_chapter,
             commands::chapter::create_chapter,
             commands::chapter::update_chapter_meta,

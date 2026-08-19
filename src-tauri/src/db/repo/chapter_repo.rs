@@ -12,6 +12,21 @@ pub async fn list_by_volume(pool: &SqlitePool, volume_id: &str) -> Result<Vec<Ch
     .await
 }
 
+/// 一次性查询项目下所有章节，按卷顺序 + 章节顺序排序
+/// 用于编辑器首次加载，避免 N 次 IPC（每卷一次）
+pub async fn list_by_project(pool: &SqlitePool, project_id: &str) -> Result<Vec<Chapter>, sqlx::Error> {
+    sqlx::query_as::<_, Chapter>(
+        "SELECT c.*
+         FROM chapters c
+         JOIN volumes v ON v.id = c.volume_id
+         WHERE c.project_id = ?
+         ORDER BY v.order_index ASC, c.order_index ASC",
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await
+}
+
 pub async fn get(pool: &SqlitePool, id: &str) -> Result<Option<Chapter>, sqlx::Error> {
     sqlx::query_as::<_, Chapter>("SELECT * FROM chapters WHERE id = ?")
         .bind(id)

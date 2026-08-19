@@ -32,7 +32,6 @@ const {
   chapterSnapshots,
   projectEntities,
   generating,
-  generateResult,
   fetchEvolution,
   fetchChapterSnapshots,
   fetchProjectEntities,
