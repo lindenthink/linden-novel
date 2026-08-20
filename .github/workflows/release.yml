@@ -6,6 +6,10 @@ on:
       - "v*"
   workflow_dispatch:
 
+# GITHUB_TOKEN 需要写权限，tauri-action 才能创建 Release 并上传 assets
+permissions:
+  contents: write
+
 jobs:
   release:
     strategy:
