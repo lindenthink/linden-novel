@@ -55,6 +55,32 @@ jobs:
 
       - run: yarn install --frozen-lockfile
 
+      - name: Build release notes from commits
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          # 取倒数第二个 tag（当前 tag 是最新的，倒数第二个就是上一个发布点）
+          PREV_TAG=$(git tag --sort=-creatordate | sed -n '2p')
+          {
+            echo "RELEASE_BODY<<EOF"
+            echo "## 更新内容"
+            echo ""
+            if [ -n "$PREV_TAG" ]; then
+              echo "自 \`${PREV_TAG}\` 以来的改动："
+              echo ""
+              git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" --no-merges
+            else
+              echo "本次首发的改动："
+              echo ""
+              git log --pretty=format:"- %s" --no-merges -n 30
+            fi
+            echo ""
+            echo ""
+            echo "---"
+            echo "安装包与 \`latest.json\` 见下方 assets。"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -63,7 +89,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "菩提思 ${{ github.ref_name }}"
-          releaseBody: "见下方 assets，自动发布。"
+          releaseBody: ${{ env.RELEASE_BODY }}
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
