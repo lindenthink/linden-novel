@@ -90,6 +90,6 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "菩提思 ${{ github.ref_name }}"
           releaseBody: ${{ env.RELEASE_BODY }}
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
