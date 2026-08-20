@@ -24,6 +24,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -34,11 +35,9 @@
   },
   "plugins": {
     "updater": {
-      "active": true,
       "endpoints": [
         "https://github.com/lindenthink/linden-novel/releases/latest/download/latest.json"
       ],
-      "dialog": false,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE5MjQ5MkNEN0UxQjVDRTEKUldUaFhCdCt6WklrR2ZhTTdsZ2dieUxia2lwYU1ETko2UWJ3WGpGTkR2TGxlN2ZDWXFpT2ZBVWoK"
     }
   }
