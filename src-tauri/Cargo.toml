@@ -78,6 +78,10 @@ once_cell = "1"
 sqlite-vec = "0.1.5-alpha.1"
 libsqlite3-sys = "0.30"
 
+# 自动更新（GitHub Releases 托管 + Ed25519 签名）
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+
 # dev build 时把依赖库编译为 release 优化级别
 # 原因：hypembed（本地嵌入模型推理）在 opt-level=0 下慢 100-1000 倍
 # （SIMD/内联/循环展开全禁用），导致 RAG query embed 从正常的 ~14ms 膨胀到 18s

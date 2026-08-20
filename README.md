@@ -206,6 +206,44 @@ linden-novel/
 - RAG 检索共享一次 query embedding，章节 / 切片 / 实体检索并行执行
 - sqlite-vec 静态链接，无需外部 `.dll`
 
+## 自动更新
+
+应用集成 [tauri-plugin-updater](https://v2.tauri.app/plugin/updater/)，通过 GitHub Releases 托管 + Ed25519 签名校验实现一键自动更新。
+
+### 用户视角
+
+- 应用启动 5s 后台静默拉取 `latest.json`（24h 节流，重复启动不重复请求 GitHub）
+- 发现新版自动弹窗显示版本号与 release notes，点击「立即下载安装」即可一键更新
+- 下载完成提示重启，重启后进入新版本
+- 浮动设置菜单可随时手动触发「检查更新」
+
+### 首次配置（开发者）
+
+1. 本地生成 Ed25519 签名密钥：
+
+   ```bash
+   yarn tauri signer generate -w "<PASSWORD>"
+   # 输出：
+   # Private key: <BASE64>
+   # Public key:  <BASE64>
+   ```
+
+2. 在 GitHub 仓库 Settings → Secrets and variables → Actions 添加：
+   - `TAURI_SIGNING_PRIVATE_KEY`：上一步输出的私钥 base64
+   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`：上一步设置的密码
+
+3. 把公钥 base64 填入 [`src-tauri/tauri.conf.json`](file:///d:/file/workspace-rust/linden-novel/src-tauri/tauri.conf.json) 的 `plugins.updater.pubkey` 字段
+
+4. 把 `plugins.updater.endpoints` 中的 `YOUR_GITHUB_OWNER/YOUR_GITHUB_REPO` 替换为实际仓库路径
+
+### 发布流程
+
+1. 同步修改三处 version：[`package.json`](file:///d:/file/workspace-rust/linden-novel/package.json)、[`src-tauri/Cargo.toml`](file:///d:/file/workspace-rust/linden-novel/src-tauri/Cargo.toml)、[`src-tauri/tauri.conf.json`](file:///d:/file/workspace-rust/linden-novel/src-tauri/tauri.conf.json)
+2. `git commit -m "release: vX.Y.Z"` → `git tag vX.Y.Z` → `git push origin vX.Y.Z`
+3. GitHub Actions 自动跨平台构建（Windows/macOS/Linux）、用私钥签名安装包、生成 `latest.json` 并上传到 Release draft
+4. 检查 Release draft 中包含安装包与 `latest.json`（`signature` 字段非空）后 publish
+5. 装有旧版本的用户应用启动 5s 内会自动收到更新提示
+
 ## 许可证
 
 MIT

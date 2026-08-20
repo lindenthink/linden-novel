@@ -16,6 +16,8 @@
       "allow": [
         { "path": "**" }
       ]
-    }
+    },
+    "updater:default",
+    "process:default"
   ]
 }

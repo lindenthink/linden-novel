@@ -20,6 +20,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // 日志初始化：文件（按天轮转）+ 控制台
             let log_dir = app.path().app_log_dir()?.to_path_buf();
