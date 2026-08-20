@@ -54,8 +54,15 @@ pub fn run() {
 
             // 初始化数据库（sqlite-vec 扩展静态链接，自动加载）
             let app_data_dir = app.path().app_data_dir()?.to_path_buf();
-            let pool = tauri::async_runtime::block_on(db::pool::init_pool(&app_data_dir))
-                .expect("Failed to initialize database");
+            tracing::info!("Initializing database at {:?}", app_data_dir);
+            let pool = match tauri::async_runtime::block_on(db::pool::init_pool(&app_data_dir)) {
+                Ok(p) => p,
+                Err(e) => {
+                    tracing::error!("Failed to initialize database at {:?}: {}", app_data_dir, e);
+                    panic!("Failed to initialize database: {}", e);
+                }
+            };
+            tracing::info!("Database initialized");
             app.manage(pool.clone());
 
             // 初始化 TaskManager 并启动 Worker
