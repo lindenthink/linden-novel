@@ -43,7 +43,7 @@ async function handleCheckUpdate() {
        <NTooltip trigger="hover" placement="left">
         <template #trigger>
           <NFloatButton shape="circle" @click="handleCheckUpdate" type="primary">
-            <span class="i-carbon-cloud-download text-lg" />
+            <span class="i-carbon-update-now text-lg" />
           </NFloatButton>
         </template>
         检查更新
