@@ -9,6 +9,8 @@ import FloatingSettings from "./components/common/FloatingSettings.vue";
 const { theme, init: initTheme } = useTheme();
 const { init: initEditorSettings } = useEditorSettings();
 const { checkForUpdates } = useUpdater();
+import { dateZhCN, zhCN } from 'naive-ui'
+
 
 initTheme();
 initEditorSettings();
@@ -24,7 +26,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <NConfigProvider :theme="theme">
+  <NConfigProvider :theme="theme" :locale="zhCN" :date-locale="dateZhCN">
     <NMessageProvider>
       <NDialogProvider>
         <router-view />
