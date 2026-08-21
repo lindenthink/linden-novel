@@ -13,8 +13,7 @@ export type TaskType =
   | "embed_element"
   | "embed_chapter"
   | "sync_embeddings"
-  | "generate_summary"
-  | "generate_snapshots";
+  | "generate_summary";
 
 /** 异步任务实体（与后端 AsyncTask 一一对应） */
 export interface AsyncTask {

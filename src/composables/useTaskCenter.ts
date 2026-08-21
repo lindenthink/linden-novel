@@ -213,7 +213,6 @@ const TASK_TYPE_LABELS: Record<TaskType, string> = {
   embed_chapter: "章节切片嵌入",
   sync_embeddings: "同步嵌入",
   generate_summary: "生成摘要",
-  generate_snapshots: "生成实体快照",
 };
 
 const TASK_STATUS_LABELS: Record<TaskStatus, string> = {

@@ -2,14 +2,11 @@
 import { computed } from "vue";
 import { NTabs, NTabPane, NEmpty, NDescriptions, NDescriptionsItem, NTag } from "naive-ui";
 import { useChapterStore } from "../../stores/chapter";
-import { useProjectStore } from "../../stores/project";
 import CharacterPanel from "../elements/CharacterPanel.vue";
 import StorylinePanel from "../elements/StorylinePanel.vue";
 import WorldviewPanel from "../elements/WorldviewPanel.vue";
-import EntityTimeline from "../entity/EntityTimeline.vue";
 
 const chapterStore = useChapterStore();
-const projectStore = useProjectStore();
 
 const activeChapter = computed(() => {
   if (!chapterStore.activeChapterId) return null;
@@ -70,11 +67,6 @@ function formatTime(iso: string | null) {
       <!-- Tab 4: 世界观 -->
       <NTabPane name="worldview" tab="世界观" class="flex-1 overflow-hidden">
         <WorldviewPanel />
-      </NTabPane>
-
-      <!-- Tab 5: 演变时间线 -->
-      <NTabPane name="timeline" tab="演变" class="flex-1 overflow-hidden">
-        <EntityTimeline :project-id="projectStore.currentProject?.id || ''" />
       </NTabPane>
     </NTabs>
   </div>

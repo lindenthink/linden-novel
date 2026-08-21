@@ -64,7 +64,6 @@ pub fn create_provider(
                 config.name.clone(),
                 config.base_url.clone(),
                 api_key.to_string(),
-                vec![models],
                 None,
             )?;
             Ok(Box::new(provider))
@@ -74,7 +73,6 @@ pub fn create_provider(
                 config.name.clone(),
                 config.base_url.clone(),
                 api_key.to_string(),
-                vec![models],
                 Some("text-embedding-v3".to_string()),
             )?;
             Ok(Box::new(provider))

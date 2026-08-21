@@ -15,7 +15,7 @@ pub async fn submit_task(
     // 注入公共上下文：项目级任务需要 app_data_dir，但前端没有
     if matches!(
         input.task_type.as_str(),
-        "sync_embeddings" | "generate_summary" | "generate_snapshots"
+        "sync_embeddings" | "generate_summary"
     ) {
         let app_data_dir = app.path().app_data_dir().map_err(|e| {
             AppError::Internal(format!("Failed to get app data dir: {}", e))

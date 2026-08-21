@@ -16,7 +16,6 @@ pub struct OpenAiProvider {
     name: String,
     base_url: String,
     api_key: String,
-    models: Vec<String>,
     embedding_model: String,
     client: Client,
 }
@@ -26,7 +25,6 @@ impl OpenAiProvider {
         name: String,
         base_url: String,
         api_key: String,
-        models: Vec<String>,
         embedding_model: Option<String>,
     ) -> Result<Self, AppError> {
         let client = Client::builder()
@@ -37,7 +35,6 @@ impl OpenAiProvider {
             name,
             base_url,
             api_key,
-            models,
             embedding_model: embedding_model
                 .unwrap_or_else(|| "text-embedding-3-small".to_string()),
             client,
@@ -510,9 +507,5 @@ impl AiProvider for OpenAiProvider {
 
     fn name(&self) -> &str {
         &self.name
-    }
-
-    fn models(&self) -> Vec<String> {
-        self.models.clone()
     }
 }

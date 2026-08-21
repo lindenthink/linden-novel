@@ -137,8 +137,4 @@ impl AiProvider for LocalEmbedder {
     fn name(&self) -> &str {
         "local_embedder"
     }
-
-    fn models(&self) -> Vec<String> {
-        vec![self.model_name.clone()]
-    }
 }

@@ -162,7 +162,6 @@ async fn process_task(
         "embed_chapter" => process_embed_chapter(pool, &task, app_handle).await,
         "sync_embeddings" => process_sync_embeddings(pool, &task, app_handle).await,
         "generate_summary" => process_generate_summary(pool, &task, app_handle).await,
-        "generate_snapshots" => process_generate_snapshots(pool, &task, app_handle).await,
         _ => Err(AppError::Validation(format!(
             "Unknown task type: {}",
             task.task_type
@@ -534,81 +533,6 @@ async fn process_generate_summary(
         result.failed_count,
         result.skipped_count,
         result.total,
-    );
-
-    Ok(())
-}
-
-/// 处理 generate_snapshots 类型的任务：批量生成项目实体快照（逐章进度）
-async fn process_generate_snapshots(
-    pool: &SqlitePool,
-    task: &AsyncTask,
-    app_handle: &AppHandle,
-) -> Result<(), AppError> {
-    let task_id = &task.id;
-
-    let payload_str = task.payload_json.as_deref()
-        .ok_or_else(|| AppError::Validation("No payload for generate_snapshots task".into()))?;
-    let payload: serde_json::Value = serde_json::from_str(payload_str)
-        .map_err(|e| AppError::Internal(format!("Failed to parse payload: {}", e)))?;
-
-    let app_data_dir_str = payload.get("app_data_dir")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| AppError::Validation("No 'app_data_dir' in payload".into()))?;
-    let app_data_dir = PathBuf::from(app_data_dir_str);
-    let project_id = &task.project_id;
-
-    tracing::info!(
-        "Processing generate_snapshots task: id={}, project_id={}",
-        task_id, project_id
-    );
-
-    // 进度回调闭包（与其他批量任务模式一致）
-    let task_id_for_progress = task_id.clone();
-    let app_handle_for_progress = app_handle.clone();
-    let pool_for_progress = pool.clone();
-    let progress_callback = move |current: usize, total: usize| {
-        let task_id = task_id_for_progress.clone();
-        let ah = app_handle_for_progress.clone();
-        let pool = pool_for_progress.clone();
-        tauri::async_runtime::spawn(async move {
-            let _ = async_task_repo::update_status(
-                &pool,
-                &task_id,
-                TaskStatus::Running,
-                Some(current as i64),
-                Some(total as i64),
-                None,
-                None,
-            )
-            .await;
-            let _ = ah.emit(
-                "task-progress",
-                serde_json::json!({
-                    "task_id": task_id,
-                    "status": "running",
-                    "progress_current": current,
-                    "progress_total": total
-                }),
-            );
-        });
-    };
-
-    let result = crate::services::entity_snapshot_service::generate_all_snapshots(
-        pool,
-        &app_data_dir,
-        project_id,
-        progress_callback,
-    )
-    .await?;
-
-    tracing::info!(
-        "generate_snapshots task {} completed: success={}, failed={}, skipped={}, total_chapters={}",
-        task_id,
-        result.success_count,
-        result.failed_count,
-        result.skipped_count,
-        result.total_chapters,
     );
 
     Ok(())

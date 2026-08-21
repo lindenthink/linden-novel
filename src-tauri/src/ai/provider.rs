@@ -115,6 +115,4 @@ pub trait AiProvider: Send + Sync {
     }
 
     fn name(&self) -> &str;
-
-    fn models(&self) -> Vec<String>;
 }
