@@ -14,7 +14,8 @@
       {
         "title": "菩提思 - AI 辅助写作",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "center": true
       }
     ],
     "security": {

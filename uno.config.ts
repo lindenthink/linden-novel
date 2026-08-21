@@ -49,14 +49,11 @@ export default defineConfig({
     "i-carbon-text-color",
     "i-carbon-color-palette",
     "i-carbon-link",
-    // SP4 长上下文
     "i-carbon-search-locate",
     // 顶部工具栏
     "i-carbon-watson-machine-learning",
     // 章节树过滤
     "i-carbon-search",
-    // 实体演变
-    "i-carbon-update",
     // 浮动设置按钮
     "i-carbon-settings",
     "i-carbon-sun",
