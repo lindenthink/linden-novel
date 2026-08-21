@@ -10,9 +10,13 @@ const props = defineProps<{
   defaultRight?: number;
 }>();
 
+const MIN_WIDTH = 180;
+const MAX_LEFT = 400;
+const MAX_RIGHT = 500;
+
 // ---- 栏宽状态 ----
-const leftWidth = ref(props.defaultLeft ?? 240);
-const rightWidth = ref(props.defaultRight ?? 300);
+const leftWidth = ref(props.defaultLeft ?? MAX_LEFT);
+const rightWidth = ref(props.defaultRight ?? MAX_RIGHT);
 const leftCollapsed = ref(false);
 const rightCollapsed = ref(false);
 
@@ -20,10 +24,6 @@ const rightCollapsed = ref(false);
 let dragging: "left" | "right" | null = null;
 let startX = 0;
 let startWidth = 0;
-
-const MIN_WIDTH = 180;
-const MAX_LEFT = 400;
-const MAX_RIGHT = 500;
 
 function onMouseDown(side: "left" | "right", e: MouseEvent) {
   e.preventDefault();
