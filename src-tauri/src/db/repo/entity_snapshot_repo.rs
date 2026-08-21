@@ -37,24 +37,6 @@ pub async fn upsert(
     Ok(())
 }
 
-/// 获取实体在指定章节的快照
-pub async fn get_by_entity_chapter(
-    pool: &SqlitePool,
-    entity_type: EntityType,
-    entity_id: &str,
-    chapter_id: &str,
-) -> Result<Option<EntitySnapshot>, sqlx::Error> {
-    sqlx::query_as::<_, EntitySnapshot>(
-        "SELECT * FROM entity_snapshots
-         WHERE entity_type = ? AND entity_id = ? AND chapter_id = ?",
-    )
-    .bind(entity_type.as_str())
-    .bind(entity_id)
-    .bind(chapter_id)
-    .fetch_optional(pool)
-    .await
-}
-
 /// 列出某实体的全部快照（按章节 order_index 排序）
 pub async fn list_by_entity(
     pool: &SqlitePool,

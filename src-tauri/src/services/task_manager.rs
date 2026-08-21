@@ -2,7 +2,7 @@ use sha2::{Digest, Sha256};
 use sqlx::SqlitePool;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
@@ -24,25 +24,10 @@ pub struct TaskManager {
 }
 
 impl TaskManager {
-    pub fn new(pool: SqlitePool, app_handle: AppHandle) -> Self {
-        let (tx, _) = mpsc::channel(100);
-        Self {
-            inner: Arc::new(TaskManagerInner { pool, app_handle, sender: tx }),
-        }
-    }
-    
     pub fn new_with_sender(pool: SqlitePool, app_handle: AppHandle, sender: mpsc::Sender<String>) -> Self {
         Self {
             inner: Arc::new(TaskManagerInner { pool, app_handle, sender }),
         }
-    }
-
-    pub fn get_pool(&self) -> &SqlitePool {
-        &self.inner.pool
-    }
-
-    pub fn get_app_handle(&self) -> &AppHandle {
-        &self.inner.app_handle
     }
 
     /// 提交异步任务（支持幂等）

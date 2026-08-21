@@ -16,7 +16,6 @@ pub struct CompleteRequest {
     pub messages: Vec<Message>,
     pub temperature: Option<f32>,
     pub max_tokens: Option<i32>,
-    pub stream: Option<bool>,
 }
 
 #[derive(Serialize)]

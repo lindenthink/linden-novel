@@ -42,7 +42,10 @@ impl std::str::FromStr for EmbeddingSourceType {
 }
 
 /// 数据库行：embeddings 表
+///
+/// 字段镜像 DB schema；部分字段当前未在 Rust 侧读取，但保留以完整描述表结构。
 #[derive(Debug, Clone, FromRow)]
+#[allow(dead_code)]
 pub struct EmbeddingRow {
     pub id: String,
     pub project_id: String,

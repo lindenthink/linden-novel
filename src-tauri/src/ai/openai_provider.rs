@@ -75,7 +75,6 @@ struct OpenAiResponse {
 #[derive(Deserialize)]
 struct OpenAiChoice {
     message: Option<OpenAiMessage>,
-    finish_reason: Option<String>,
 }
 
 #[derive(Deserialize)]

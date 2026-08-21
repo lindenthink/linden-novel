@@ -2,12 +2,12 @@ use sqlx::SqlitePool;
 use tauri::{AppHandle, Emitter};
 use futures::StreamExt;
 use crate::error::AppError;
-use crate::models::ai_generation::{AiGenerationHistory, CreateAiGeneration, GenerationContext};
+use crate::models::ai_generation::{AiGenerationHistory, CreateAiGeneration};
 use crate::db::repo::ai_generation_repo;
 use crate::ai::context_collector;
 use crate::ai::generation_prompts;
 use crate::ai::provider_factory;
-use crate::ai::provider::{AiProvider, CompletionRequest, Message};
+use crate::ai::provider::{CompletionRequest, Message};
 use crate::services::{ai_provider_service, ai_api_key_service};
 use std::path::Path;
 

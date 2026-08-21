@@ -7,7 +7,7 @@ mod models;
 mod services;
 
 use std::sync::Arc;
-use services::task_manager::{TaskManager, TaskManagerState};
+use services::task_manager::TaskManager;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

@@ -2,7 +2,10 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 /// 切片嵌入数据库行
+///
+/// 字段镜像 DB schema；部分字段当前未在 Rust 侧读取，但保留以完整描述表结构。
 #[derive(Debug, Clone, FromRow)]
+#[allow(dead_code)]
 pub struct EmbeddingChunkRow {
     pub id: String,
     pub project_id: String,

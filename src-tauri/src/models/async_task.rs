@@ -39,14 +39,6 @@ impl std::str::FromStr for TaskStatus {
     }
 }
 
-/// 异步任务类型
-pub mod task_types {
-    pub const EMBED_ELEMENT: &str = "embed_element";
-    pub const EMBED_CHAPTER: &str = "embed_chapter";
-    pub const SYNC_EMBEDDINGS: &str = "sync_embeddings";
-    pub const GENERATE_SUMMARY: &str = "generate_summary";
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct AsyncTask {
     pub id: String,

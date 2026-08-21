@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use hypembed::{Embedder, EmbeddingOptions, PoolingStrategy};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -17,7 +17,6 @@ use crate::error::AppError;
 /// - 模型目录需包含 config.json / vocab.txt / model.safetensors
 pub struct LocalEmbedder {
     embedder: Arc<Mutex<Embedder>>,
-    model_dir: PathBuf,
     model_name: String,
     dim: usize,
 }
@@ -49,7 +48,6 @@ impl LocalEmbedder {
 
         Ok(Self {
             embedder: Arc::new(Mutex::new(embedder)),
-            model_dir: model_dir.to_path_buf(),
             model_name,
             dim,
         })

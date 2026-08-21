@@ -21,7 +21,6 @@ impl Default for ChunkConfig {
 pub struct Chunk {
     pub index: usize,
     pub text: String,
-    pub char_count: usize,
     pub content_hash: String,
 }
 
@@ -77,12 +76,10 @@ pub fn chunk_text(text: &str, config: &ChunkConfig) -> Vec<Chunk> {
         }
         text.push_str(chunk);
 
-        let char_count = text.chars().count();
         let content_hash = hash_text(&text);
         result.push(Chunk {
             index: i,
             text,
-            char_count,
             content_hash,
         });
     }

@@ -101,17 +101,6 @@ pub async fn generate_and_store(
     Ok(true)
 }
 
-/// 删除指定来源的嵌入
-pub async fn remove(
-    pool: &SqlitePool,
-    source_type: &str,
-    source_id: &str,
-) -> Result<(), AppError> {
-    let st = parse_source_type(source_type)?;
-    embedding_repo::delete_by_source(pool, st, source_id).await?;
-    Ok(())
-}
-
 /// 删除指定项目的全部嵌入
 pub async fn remove_by_project(pool: &SqlitePool, project_id: &str) -> Result<(), AppError> {
     embedding_repo::delete_by_project(pool, project_id).await?;

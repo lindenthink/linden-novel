@@ -74,23 +74,6 @@ async fn get_adjacent_summaries(
 /// 3. 查询前后章节摘要
 /// 4. 用章节标题+摘要作为 query 执行 RAG 检索
 /// 5. 渲染 RAG 上下文为 Prompt 片段
-pub async fn collect_context(
-    pool: &SqlitePool,
-    chapter_id: &str,
-) -> Result<GenerationContext, AppError> {
-    collect_context_with_rag(pool, None, chapter_id).await
-}
-
-/// 带应用数据目录的上下文收集（启用 RAG）
-pub async fn collect_context_with_rag(
-    pool: &SqlitePool,
-    app_data_dir: Option<&Path>,
-    chapter_id: &str,
-) -> Result<GenerationContext, AppError> {
-    collect_context_with_rag_and_instruction(pool, app_data_dir, chapter_id, None).await
-}
-
-/// 带用户指令的上下文收集（RAG query 包含用户指令，续写时检索更精准）
 pub async fn collect_context_with_rag_and_instruction(
     pool: &SqlitePool,
     app_data_dir: Option<&Path>,

@@ -89,7 +89,6 @@ pub fn decrypt(encrypted: &str, app_data_dir: &std::path::Path) -> Result<String
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
 
     #[test]
     fn test_encrypt_decrypt_roundtrip() {

@@ -1,16 +1,9 @@
-use serde::Serialize;
 use sqlx::SqlitePool;
 use tauri::{AppHandle, Manager, State};
 
 use crate::error::AppError;
 use crate::models::ai_api_key::{AiApiKey, CreateAiApiKey};
 use crate::services::ai_api_key_service;
-
-#[derive(Clone, Serialize)]
-pub struct AiStreamEvent {
-    pub chunk: String,
-    pub done: bool,
-}
 
 #[tauri::command]
 pub async fn list_ai_api_keys(
