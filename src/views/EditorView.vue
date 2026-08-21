@@ -79,17 +79,16 @@ const exporting = ref(false);
 const exportOptions = [
   { label: "导出为 TXT", key: "txt" },
   { label: "导出为 Markdown", key: "md" },
-  { label: "导出为 JSON", key: "json" },
 ];
 
 async function handleExport(key: string) {
   try {
-    const ext = key === "md" ? "md" : key;
+    const ext = key === "md" ? "md" : "txt";
     const defaultName = `${projectStore.currentProject?.title || "项目"}.${ext}`;
     const selected = await save({
       filters: [
         {
-          name: key === "json" ? "JSON 文件" : key === "md" ? "Markdown 文件" : "文本文件",
+          name: key === "md" ? "Markdown 文件" : "文本文件",
           extensions: [ext],
         },
       ],

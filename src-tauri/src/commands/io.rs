@@ -25,15 +25,3 @@ pub async fn export_project(
 
     Ok(())
 }
-
-/// 导入项目（JSON）
-#[tauri::command]
-pub async fn import_project(
-    pool: State<'_, SqlitePool>,
-    path: String,
-) -> Result<String, AppError> {
-    let path_buf = PathBuf::from(&path);
-    io_service::import_project_json(&pool, &path_buf)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))
-}

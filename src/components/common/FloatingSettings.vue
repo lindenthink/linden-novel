@@ -40,6 +40,14 @@ async function handleCheckUpdate() {
   >
     <span class="i-carbon-settings text-xl" />
     <template #menu>
+       <NTooltip trigger="hover" placement="left">
+        <template #trigger>
+          <NFloatButton shape="circle" @click="handleCheckUpdate" type="primary">
+            <span class="i-carbon-cloud-download text-lg" />
+          </NFloatButton>
+        </template>
+        检查更新
+      </NTooltip>
       <NTooltip trigger="hover" placement="left">
         <template #trigger>
           <NFloatButton shape="circle" @click="handleAiSettings" type="primary">
@@ -47,14 +55,6 @@ async function handleCheckUpdate() {
           </NFloatButton>
         </template>
         AI 设置
-      </NTooltip>
-      <NTooltip trigger="hover" placement="left">
-        <template #trigger>
-          <NFloatButton shape="circle" @click="handleCheckUpdate" type="primary">
-            <span class="i-carbon-cloud-download text-lg" />
-          </NFloatButton>
-        </template>
-        检查更新
       </NTooltip>
       <NTooltip trigger="hover" placement="left">
         <template #trigger>

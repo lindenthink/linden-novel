@@ -172,9 +172,8 @@ pub fn run() {
             // settings
             commands::settings::get_setting,
             commands::settings::set_setting,
-            // io (import/export)
+            // io (export)
             commands::io::export_project,
-            commands::io::import_project,
             // character
             commands::character::list_characters,
             commands::character::get_character,
