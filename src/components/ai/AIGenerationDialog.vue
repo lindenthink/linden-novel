@@ -71,6 +71,7 @@ const form = ref<GenerateRequest>({
   parameters: {
     target_words: 2000,
     temperature: 0.7,
+    constraint: 'strict',
   },
 });
 
@@ -81,6 +82,12 @@ const modeOptions = [
   { label: '改写', value: 'rewrite' },
   { label: '润色', value: 'polish' },
   { label: '大纲生成', value: 'outline' },
+];
+
+// 约束程度选项：宽松用 narrative_rules_simple，严格用 narrative_rules_strict
+const constraintOptions = [
+  { label: '宽松', value: 'loose' },
+  { label: '严格', value: 'strict' },
 ];
 
 // 计算属性
@@ -251,12 +258,10 @@ function formatTime(time: string): string {
             />
           </div>
           <div class="parameter-row">
-            <span class="parameter-label">创造性：</span>
-            <NInputNumber
-              v-model:value="form.parameters!.temperature"
-              :min="0"
-              :max="1"
-              :step="0.1"
+            <span class="parameter-label">约束程度：</span>
+            <NSelect
+              v-model:value="form.parameters!.constraint"
+              :options="constraintOptions"
               style="width: 120px;"
             />
           </div>

@@ -13,3 +13,4 @@ pub mod ai_complete;
 pub mod ai_generation;
 pub mod long_context;
 pub mod tasks;
+pub mod prompt_templates;

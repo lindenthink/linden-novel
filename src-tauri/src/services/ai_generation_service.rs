@@ -81,12 +81,30 @@ pub async fn generate(
         target_words: None,
         temperature: None,
         style: None,
+        constraint: None,
     });
+
+    // 从 prompt_templates 表按约束程度取叙事规则正文；数据库不存在时自动回退编译期默认值
+    let narrative_rules = crate::services::prompt_template_service::get_narrative_rules(
+        pool,
+        params.constraint.as_deref(),
+    )
+    .await
+    .unwrap_or_else(|e| {
+        tracing::warn!(
+            "Failed to load narrative rules for constraint={:?}, fallback to strict default: {}",
+            params.constraint,
+            e
+        );
+        crate::services::prompt_template_service::DEFAULT_NARRATIVE_STRICT.to_string()
+    });
+
     let prompt = generation_prompts::build_generation_prompt(
         &context,
         mode,
         user_instruction,
         params.target_words,
+        &narrative_rules,
     );
 
     // 日志：输出完整提示词
@@ -250,12 +268,30 @@ pub async fn generate_stream(
         target_words: None,
         temperature: None,
         style: None,
+        constraint: None,
     });
+
+    // 从 prompt_templates 表按约束程度取叙事规则正文；数据库不存在时自动回退编译期默认值
+    let narrative_rules = crate::services::prompt_template_service::get_narrative_rules(
+        pool,
+        params.constraint.as_deref(),
+    )
+    .await
+    .unwrap_or_else(|e| {
+        tracing::warn!(
+            "(stream) Failed to load narrative rules for constraint={:?}, fallback to strict default: {}",
+            params.constraint,
+            e
+        );
+        crate::services::prompt_template_service::DEFAULT_NARRATIVE_STRICT.to_string()
+    });
+
     let prompt = generation_prompts::build_generation_prompt(
         &context,
         mode,
         user_instruction,
         params.target_words,
+        &narrative_rules,
     );
 
     tracing::info!("=== AI Generation (stream) Prompt ===");

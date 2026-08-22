@@ -5,6 +5,7 @@ pub fn build_generation_prompt(
     mode: &str,
     user_instruction: Option<&str>,
     target_words: Option<i32>,
+    narrative_rules: &str,
 ) -> String {
     let mut prompt = String::new();
 
@@ -118,20 +119,19 @@ pub fn build_generation_prompt(
         }
     }
 
-    prompt.push_str("## 风格与质量控制\n");
-    prompt.push_str("- 保持与前文一致的叙事视角和语言风格。\n");
-    prompt.push_str("- 对话自然，符合角色身份和性格。\n");
-    prompt.push_str("- 节奏张弛有度，避免平铺直叙。\n");
-    prompt.push_str("- 如果涉及设定，请贴合世界观，不要自创矛盾设定。\n");
-    // 期望字数（作为软性引导，避免硬 token 限制在推理模型上耗尽 thinking 额度）
+    // 叙事规则：已由调用方按「约束程度」从 prompt_templates 取到正文（找不到时会回退编译期默认）。
+    // trim_end + 显式换行：归一化末尾换行，避免编辑器/文本框自动追加空行导致 prompt 多空行
+    prompt.push_str(narrative_rules.trim_end());
+    prompt.push_str("\n\n");
+
+    prompt.push_str("## 输出要求\n");
+    prompt.push_str("- 直接输出小说正文，不要包含标题、解释或标记。\n");
+        // 期望字数（作为软性引导，避免硬 token 限制在推理模型上耗尽 thinking 额度）
     if let Some(n) = target_words {
         if n > 0 {
             prompt.push_str(&format!("- 字数控制在 {} 字左右，无需严格相等，情节自然即可。\n", n));
         }
     }
-    prompt.push('\n');
-  
-    prompt.push_str("## 约束条件\n");
-    prompt.push_str("- 直接输出小说正文，不要包含任何解释或标记。\n");
+    
     prompt
 }

@@ -5,8 +5,11 @@ import type {
   AiApiKey,
   CompleteRequest,
   StreamChunkEvent,
+  PromptTemplate,
+  UpdatePromptTemplate,
 } from "../types/ai";
 import * as aiApi from "../api/ai";
+import * as promptTemplatesApi from "../api/prompt_templates";
 import { listen } from "@tauri-apps/api/event";
 
 export const useAiStore = defineStore("ai", () => {
@@ -16,6 +19,10 @@ export const useAiStore = defineStore("ai", () => {
   const defaultProvider = ref<AiProvider | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+
+  // Prompt 模板
+  const promptTemplates = ref<PromptTemplate[]>([]);
+  const promptTemplatesLoading = ref(false);
 
   // 流式响应状态
   const streaming = ref(false);
@@ -211,6 +218,50 @@ export const useAiStore = defineStore("ai", () => {
     }
   }
 
+  // ---- Prompt 模板管理 ----
+  async function loadPromptTemplates() {
+    promptTemplatesLoading.value = true;
+    error.value = null;
+    try {
+      promptTemplates.value = await promptTemplatesApi.listPromptTemplates();
+    } catch (e) {
+      error.value = String(e);
+      throw e;
+    } finally {
+      promptTemplatesLoading.value = false;
+    }
+  }
+
+  async function updatePromptTemplate(
+    id: string,
+    input: UpdatePromptTemplate
+  ) {
+    error.value = null;
+    try {
+      const t = await promptTemplatesApi.updatePromptTemplate(id, input);
+      const idx = promptTemplates.value.findIndex((p) => p.id === id);
+      if (idx !== -1) promptTemplates.value[idx] = t;
+      return t;
+    } catch (e) {
+      error.value = String(e);
+      throw e;
+    }
+  }
+
+  async function resetPromptTemplateBuiltin(id: string) {
+    error.value = null;
+    try {
+      const t = await promptTemplatesApi.resetPromptTemplateBuiltin(id);
+      const idx = promptTemplates.value.findIndex((p) => p.id === id);
+      if (idx !== -1) promptTemplates.value[idx] = t;
+      else promptTemplates.value.push(t);
+      return t;
+    } catch (e) {
+      error.value = String(e);
+      throw e;
+    }
+  }
+
   return {
     // State
     providers,
@@ -221,6 +272,8 @@ export const useAiStore = defineStore("ai", () => {
     streaming,
     streamContent,
     streamError,
+    promptTemplates,
+    promptTemplatesLoading,
 
     // Getters
     providerList,
@@ -239,5 +292,8 @@ export const useAiStore = defineStore("ai", () => {
     setDefaultApiKey,
     complete,
     completeStream,
+    loadPromptTemplates,
+    updatePromptTemplate,
+    resetPromptTemplateBuiltin,
   };
 });

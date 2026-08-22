@@ -20,6 +20,9 @@ pub struct GenerationParameters {
     pub target_words: Option<i32>,
     pub temperature: Option<f32>,
     pub style: Option<String>,
+    /// 叙事规则约束程度："loose"（宽松）或 "strict"（严格），默认 "strict"
+    #[serde(default)]
+    pub constraint: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

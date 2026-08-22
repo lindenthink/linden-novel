@@ -3,6 +3,8 @@ export interface GenerationParameters {
   target_words?: number;
   temperature?: number;
   style?: string;
+  // 叙事规则约束程度：'loose'（宽松）| 'strict'（严格）
+  constraint?: 'loose' | 'strict';
 }
 
 export interface AiGenerationHistory {

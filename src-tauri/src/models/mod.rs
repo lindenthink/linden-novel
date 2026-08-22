@@ -13,3 +13,4 @@ pub mod ai_generation;
 pub mod embedding;
 pub mod embedding_chunk;
 pub mod async_task;
+pub mod prompt_template;

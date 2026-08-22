@@ -76,3 +76,35 @@ export interface StreamChunkEvent {
   content: string;
   done: boolean;
 }
+
+// ---- Prompt Template ----
+export interface PromptTemplate {
+  id: string;
+  name: string;
+  template_type: string;
+  content: string;
+  variables_json?: string;
+  description?: string;
+  is_builtin: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePromptTemplate {
+  id?: string;
+  name: string;
+  template_type: string;
+  content: string;
+  variables_json?: string;
+  description?: string;
+  is_builtin?: boolean;
+}
+
+export interface UpdatePromptTemplate {
+  name?: string;
+  template_type?: string;
+  content?: string;
+  variables_json?: string;
+  description?: string;
+  is_builtin?: boolean;
+}

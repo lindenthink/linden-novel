@@ -14,6 +14,8 @@ import {
   NDataTable,
   NPopconfirm,
   NEmpty,
+  NSpin,
+  NCard,
   useMessage,
 } from "naive-ui";
 import type { DataTableColumns } from "naive-ui";
@@ -31,7 +33,7 @@ const emit = defineEmits<{
 const aiStore = useAiStore();
 const message = useMessage();
 
-const activeTab = ref<"provider" | "apikey">("provider");
+const activeTab = ref<"provider" | "apikey" | "narrative-rules">("provider");
 
 const providerTypeOptions = [
   { label: "OpenAI", value: "openai" },
@@ -334,10 +336,81 @@ const apikeyColumns: DataTableColumns<AiApiKey> = [
   },
 ];
 
+// ---- 叙事规则模板管理（prompt_templates: narrative_loose / narrative_strict）----
+const BUILTIN_LOOSE_ID = "builtin-narrative-loose";
+const BUILTIN_STRICT_ID = "builtin-narrative-strict";
+
+const narrativeSaving = ref<string | null>(null); // 'loose' | 'strict' | null
+
+const looseTemplate = computed(() =>
+  aiStore.promptTemplates.find((t) => t.id === BUILTIN_LOOSE_ID)
+);
+const strictTemplate = computed(() =>
+  aiStore.promptTemplates.find((t) => t.id === BUILTIN_STRICT_ID)
+);
+
+// 本地内容缓存：用户在 textarea 内编辑后不直接回写 store，点「保存」再提交
+const looseContentLocal = ref("");
+const strictContentLocal = ref("");
+
+// 当 store 中的模板变化（加载/重置）时，同步本地缓存
+watch(
+  () => looseTemplate.value?.content,
+  (c) => {
+    if (typeof c === "string") looseContentLocal.value = c;
+  },
+  { immediate: true }
+);
+watch(
+  () => strictTemplate.value?.content,
+  (c) => {
+    if (typeof c === "string") strictContentLocal.value = c;
+  },
+  { immediate: true }
+);
+
+async function saveNarrativeTemplate(kind: "loose" | "strict") {
+  const id = kind === "loose" ? BUILTIN_LOOSE_ID : BUILTIN_STRICT_ID;
+  const localContent =
+    kind === "loose" ? looseContentLocal.value : strictContentLocal.value;
+  narrativeSaving.value = kind;
+  try {
+    if (!localContent.trim()) {
+      message.warning("模板内容不能为空");
+      return;
+    }
+    await aiStore.updatePromptTemplate(id, { content: localContent });
+    message.success(`${kind === "loose" ? "宽松" : "严格"}规则保存成功`);
+  } catch (e: any) {
+    message.error(e?.message || "保存失败");
+  } finally {
+    narrativeSaving.value = null;
+  }
+}
+
+async function resetNarrativeTemplate(kind: "loose" | "strict") {
+  const id = kind === "loose" ? BUILTIN_LOOSE_ID : BUILTIN_STRICT_ID;
+  narrativeSaving.value = kind;
+  try {
+    const t = await aiStore.resetPromptTemplateBuiltin(id);
+    // reset 后 store 已更新，watch 会同步本地缓存
+    message.success(
+      `${kind === "loose" ? "宽松" : "严格"}规则已恢复为默认：${t.name}`
+    );
+  } catch (e: any) {
+    message.error(e?.message || "恢复默认失败");
+  } finally {
+    narrativeSaving.value = null;
+  }
+}
+
 // 监听 tab 切换，加载对应数据
 function handleTabChange(key: string) {
   if (key === "apikey" && selectedProviderId.value) {
     aiStore.loadApiKeys(selectedProviderId.value);
+  }
+  if (key === "narrative-rules") {
+    aiStore.loadPromptTemplates();
   }
 }
 
@@ -452,6 +525,93 @@ onMounted(async () => {
             </NForm>
           </NModal>
         </NSpace>
+      </NTabPane>
+
+      <!-- 叙事规则模板管理 -->
+      <NTabPane name="narrative-rules" tab="叙事规则">
+        <NSpin :show="aiStore.promptTemplatesLoading">
+          <NSpace vertical style="gap: 16px">
+            <div style="font-size: 13px; color: #666;">
+              这里的模板会在 AI 生成章节时作为「约束程度」的默认规则使用。用户可根据写作习惯自由修改，修改后立即生效。
+            </div>
+
+            <!-- 宽松 -->
+            <NCard :bordered="true" size="small">
+              <template #header>
+                <NSpace align="center" justify="space-between" style="width: 100%">
+                  <span style="font-weight: 500">约束程度：宽松</span>
+                  <NSpace>
+                    <NPopconfirm
+                      @positive-click="() => resetNarrativeTemplate('loose')"
+                    >
+                      <template #trigger>
+                        <NButton
+                          size="small"
+                          :disabled="narrativeSaving !== null"
+                        >
+                          恢复默认
+                        </NButton>
+                      </template>
+                      确定要将「宽松」规则恢复为默认内容吗？当前修改将会丢失。
+                    </NPopconfirm>
+                    <NButton
+                      size="small"
+                      type="primary"
+                      :loading="narrativeSaving === 'loose'"
+                      @click="() => saveNarrativeTemplate('loose')"
+                    >
+                      保存
+                    </NButton>
+                  </NSpace>
+                </NSpace>
+              </template>
+              <NInput
+                v-model:value="looseContentLocal"
+                type="textarea"
+                :autosize="{ minRows: 8, maxRows: 16 }"
+                placeholder="例如：保持与前文一致的叙事视角和语言风格..."
+              />
+            </NCard>
+
+            <!-- 严格 -->
+            <NCard :bordered="true" size="small">
+              <template #header>
+                <NSpace align="center" justify="space-between" style="width: 100%">
+                  <span style="font-weight: 500">约束程度：严格</span>
+                  <NSpace>
+                    <NPopconfirm
+                      @positive-click="() => resetNarrativeTemplate('strict')"
+                    >
+                      <template #trigger>
+                        <NButton
+                          size="small"
+                          :disabled="narrativeSaving !== null"
+                        >
+                          恢复默认
+                        </NButton>
+                      </template>
+                      确定要将「严格」规则恢复为默认内容吗？当前修改将会丢失。
+                    </NPopconfirm>
+                    <NButton
+                      size="small"
+                      type="primary"
+                      :loading="narrativeSaving === 'strict'"
+                      @click="() => saveNarrativeTemplate('strict')"
+                    >
+                      保存
+                    </NButton>
+                  </NSpace>
+                </NSpace>
+              </template>
+              <NInput
+                v-model:value="strictContentLocal"
+                type="textarea"
+                :autosize="{ minRows: 8, maxRows: 20 }"
+                placeholder="例如：视角：紧贴主角，不写他不知道的事..."
+              />
+            </NCard>
+          </NSpace>
+        </NSpin>
       </NTabPane>
     </NTabs>
   </NModal>

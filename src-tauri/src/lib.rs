@@ -91,7 +91,16 @@ pub fn run() {
             
             // 存储 TaskManager 到 State
             app.manage(task_manager_state);
-            
+
+            // 确保 prompt_templates 内置叙事规则（宽松/严格）存在：
+            // 新库靠迁移 INSERT 初始化；老库已有表但缺内置行时，此处以编译期默认内容补建
+            // （不会覆盖用户自定义修改）。
+            if let Err(e) = tauri::async_runtime::block_on(
+                crate::services::prompt_template_service::ensure_narrative_builtins(&pool)
+            ) {
+                tracing::warn!("Failed to ensure narrative prompt templates: {}", e);
+            }
+
             // 启动后台 Worker 任务处理循环
             let app_handle_clone = app.handle().clone();
             let pool_clone = pool.clone();
@@ -219,6 +228,14 @@ pub fn run() {
             commands::ai_generation::get_ai_generation_history,
             commands::ai_generation::delete_ai_generation_history,
             commands::ai_generation::delete_ai_generation_history_by_chapter,
+            // prompt_templates
+            commands::prompt_templates::list_prompt_templates,
+            commands::prompt_templates::list_prompt_templates_by_type,
+            commands::prompt_templates::get_prompt_template,
+            commands::prompt_templates::create_prompt_template,
+            commands::prompt_templates::update_prompt_template,
+            commands::prompt_templates::delete_prompt_template,
+            commands::prompt_templates::reset_prompt_template_builtin,
             // long_context (SP4)
             commands::long_context::generate_chapter_summary,
             commands::long_context::batch_generate_summaries,

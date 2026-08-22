@@ -13,3 +13,4 @@ pub mod ai_generation_repo;
 pub mod embedding_repo;
 pub mod embedding_chunk_repo;
 pub mod async_task_repo;
+pub mod prompt_template_repo;
