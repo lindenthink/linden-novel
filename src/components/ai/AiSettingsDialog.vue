@@ -56,7 +56,7 @@ const providerForm = ref({
   provider_type: "openai",
   base_url: "https://api.openai.com",
   models_json: "gpt-4o",
-  is_default: false,
+  is_default: true,
 });
 
 function openProviderForm() {
@@ -83,7 +83,7 @@ function resetProviderForm() {
     provider_type: "deepseek",
     base_url: "https://api.deepseek.com",
     models_json: "deepseek-v4-flash",
-    is_default: false,
+    is_default: true,
   };
   editingProvider.value = null;
 }
@@ -210,7 +210,7 @@ const apikeyForm = ref({
   provider_id: "",
   name: "",
   api_key: "",
-  is_default: false,
+  is_default: true,
 });
 
 function resetApiKeyForm() {
@@ -218,7 +218,7 @@ function resetApiKeyForm() {
     provider_id: selectedProviderId.value,
     name: "",
     api_key: "",
-    is_default: false,
+    is_default: true,
   };
 }
 
