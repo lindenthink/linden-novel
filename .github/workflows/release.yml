@@ -25,7 +25,8 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
-
+        with:
+            fetch-depth: 0  # 关键修复：拉取完整历史以获取所有 tag
       - uses: actions/setup-node@v4
         with:
           node-version: 22
