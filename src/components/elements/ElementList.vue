@@ -68,7 +68,7 @@ function handleDelete(id: string) {
                 <span class="font-medium truncate">{{ item.name }}</span>
                 <slot name="item-meta" :item="item" />
               </div>
-              <div v-if="item.description" class="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">
+              <div v-if="item.description" class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2 break-words">
                 {{ item.description }}
               </div>
             </div>
