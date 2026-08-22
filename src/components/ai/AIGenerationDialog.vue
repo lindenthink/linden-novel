@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, h } from 'vue';
 import { NModal, NSelect, NInput, NInputNumber, NButton, NSpace, NAlert, NSpin, NTag, NPopconfirm, NCollapse, NCollapseItem, useMessage, useDialog } from 'naive-ui';
 import { useAiGenerationStore } from '../../stores/ai_generation';
 import { useChapterStore } from '../../stores/chapter';
@@ -84,11 +84,32 @@ const modeOptions = [
   { label: '大纲生成', value: 'outline' },
 ];
 
-// 约束程度选项：宽松用 narrative_rules_simple，严格用 narrative_rules_strict
+// 约束程度选项：宽松 token 消耗少、速度快但可能有 AI 痕迹；严格相反
 const constraintOptions = [
-  { label: '宽松', value: 'loose' },
-  { label: '严格', value: 'strict' },
+  {
+    label: '宽松',
+    value: 'loose',
+    description: 'token 消耗少，生成速度快，可能有 AI 生成痕迹',
+  },
+  {
+    label: '严格',
+    value: 'strict',
+    description: 'token 消耗多，生成速度慢，尽量减少 AI 生成痕迹',
+  },
 ];
+
+// 菜单项渲染：主标签 + 灰色描述
+function renderConstraintLabel(option: any) {
+  return h('div', { style: 'display: flex; flex-direction: column; padding: 2px 0; white-space: normal; word-break: break-word;' }, [
+    h('span', { style: 'font-size: 14px;' }, option.label),
+    h('span', { style: 'font-size: 12px; color: #999; margin-top: 2px; line-height: 1.4;' }, option.description),
+  ]);
+}
+
+// 选中后输入框只显示纯文本 label，不带描述
+function renderConstraintTag(props: { option: any }) {
+  return props.option.label;
+}
 
 // 计算属性
 const activeChapterId = computed(() => chapterStore.activeChapterId);
@@ -262,7 +283,10 @@ function formatTime(time: string): string {
             <NSelect
               v-model:value="form.parameters!.constraint"
               :options="constraintOptions"
-              style="width: 120px;"
+              :render-label="renderConstraintLabel"
+              :render-tag="renderConstraintTag"
+              :menu-props="{ style: 'min-width: 320px' }"
+              style="width: 240px;"
             />
           </div>
         </div>
