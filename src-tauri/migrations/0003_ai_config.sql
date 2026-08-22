@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS ai_providers (
     base_url     TEXT NOT NULL,
     models_json  TEXT NOT NULL,   -- JSON array of model names
     is_default   INTEGER NOT NULL DEFAULT 0,
-    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- AI API Key 表（加密存储）
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS ai_api_keys (
     name          TEXT NOT NULL,
     encrypted_key TEXT NOT NULL,  -- AES-256-GCM 加密后的密钥
     is_default    INTEGER NOT NULL DEFAULT 0,
-    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- Prompt 模板表
@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS prompt_templates (
     variables_json TEXT,          -- JSON array of variable definitions
     description  TEXT,
     is_builtin   INTEGER NOT NULL DEFAULT 0,
-    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- 索引

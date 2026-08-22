@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { NTabs, NTabPane, NEmpty, NDescriptions, NDescriptionsItem, NTag } from "naive-ui";
 import { useChapterStore } from "../../stores/chapter";
+import { formatLocalTime } from "../../utils/time";
 import CharacterPanel from "../elements/CharacterPanel.vue";
 import StorylinePanel from "../elements/StorylinePanel.vue";
 import WorldviewPanel from "../elements/WorldviewPanel.vue";
@@ -19,17 +20,14 @@ const statusMap: Record<string, { label: string; type: "default" | "info" | "suc
   final: { label: "定稿", type: "success" },
 };
 
-function formatTime(iso: string | null) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  return d.toLocaleString("zh-CN", {
+const formatTime = (iso: string | null) =>
+  formatLocalTime(iso, {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
-}
 </script>
 
 <template>

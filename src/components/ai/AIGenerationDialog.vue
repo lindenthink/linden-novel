@@ -7,6 +7,7 @@ import { useEditorUI, type AIGenerationMode } from '../../composables/useEditorU
 import type { GenerateRequest } from '../../types/ai_generation';
 import type { Chapter } from '../../types';
 import { listChapterElements } from '../../api/element';
+import { formatLocalTime } from '../../utils/time';
 
 const props = defineProps<{
   show: boolean;
@@ -228,11 +229,7 @@ async function handleClearHistory() {
   }
 }
 
-// 格式化时间
-function formatTime(time: string): string {
-  const date = new Date(time);
-  return date.toLocaleString('zh-CN');
-}
+
 </script>
 
 <template>
@@ -380,7 +377,11 @@ function formatTime(time: string): string {
             </NPopconfirm>
           </div>
 
-          <NSpin :show="aiGenerationStore.loading && aiGenerationStore.history.length === 0">
+          <NSpin
+            :show="aiGenerationStore.loading && aiGenerationStore.history.length === 0"
+            style="flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;"
+            :content-style="{ flex: '1', minHeight: '0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }"
+          >
             <div v-if="aiGenerationStore.history.length === 0" class="empty-history">
               暂无历史记录
             </div>
@@ -394,7 +395,7 @@ function formatTime(time: string): string {
                   <NTag :bordered="false" size="small" type="info">
                     {{ modeOptions.find(m => m.value === item.mode)?.label || item.mode }}
                   </NTag>
-                  <span class="history-time">{{ formatTime(item.created_at) }}</span>
+                  <span class="history-time">{{ formatLocalTime(item.created_at) }}</span>
                   <NButton
                     size="tiny"
                     quaternary
@@ -466,6 +467,7 @@ function formatTime(time: string): string {
 
 .generation-result {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -564,6 +566,7 @@ function formatTime(time: string): string {
 
 .history-section {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -590,6 +593,7 @@ function formatTime(time: string): string {
 
 .history-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;

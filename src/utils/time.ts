@@ -1,4 +1,21 @@
 /**
+ * 格式化后端返回的时间字符串为本地时区显示文本
+ *
+ * 后端统一存储为 UTC ISO 8601 字符串（带 Z 后缀，如 "2026-08-22T12:30:00Z"），
+ * `new Date(iso)` 能正确解析为本地时区。
+ *
+ * @param iso - 后端返回的时间字符串（ISO 8601）
+ * @param options - toLocaleString 选项，不传则用默认格式
+ * @returns 本地时区的中文显示，如 "2026/8/22 20:30:00"
+ */
+export function formatLocalTime(iso: string | null, options?: Intl.DateTimeFormatOptions): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("zh-CN", options);
+}
+
+/**
  * 相对时间格式化（类似 dayjs fromNow 的轻量实现，无依赖）
  *
  * @param iso - ISO 格式时间字符串或 null

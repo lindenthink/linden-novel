@@ -2,9 +2,11 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::SqlitePool;
 use std::path::Path;
 
-/// 当前本地时间，格式 `YYYY-MM-DD HH:MM:SS`
+/// 当前 UTC 时间，格式 `YYYY-MM-DDTHH:MM:SSZ`（ISO 8601 带 Z 后缀）
+///
+/// 统一用 UTC + Z 后缀，前端 `new Date(iso)` 能正确转本地时区显示。
 pub fn now() -> String {
-    chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+    chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string()
 }
 
 

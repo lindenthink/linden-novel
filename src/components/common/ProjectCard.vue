@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { NCard, NThing, NDropdown, NButton, NEllipsis, NTag } from "naive-ui";
 import type { Project } from "../../types";
+import { formatLocalTime } from "../../utils/time";
 
 const props = defineProps<{
   project: Project;
@@ -27,16 +28,14 @@ function handleDropdown(key: string) {
   if (key === "delete") emit("delete", props.project.id);
 }
 
-function formatTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleString("zh-CN", {
+const formatTime = (iso: string) =>
+  formatLocalTime(iso, {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
-}
 </script>
 
 <template>

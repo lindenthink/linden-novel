@@ -1,6 +1,7 @@
 use sqlx::SqlitePool;
 use crate::error::AppError;
 use crate::models::ai_generation::{AiGenerationHistory, CreateAiGeneration};
+use crate::db::pool::now;
 
 pub async fn create(
     pool: &SqlitePool,
@@ -9,11 +10,12 @@ pub async fn create(
     let id = uuid::Uuid::new_v4().to_string();
     let parameters_json = serde_json::to_string(&input.parameters)
         .map_err(|e| AppError::Internal(format!("Failed to serialize parameters: {}", e)))?;
+    let created_at = now();
 
     sqlx::query_as::<_, AiGenerationHistory>(
         r#"
-        INSERT INTO ai_generation_history (id, chapter_id, mode, input_context, output_content, parameters_json)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO ai_generation_history (id, chapter_id, mode, input_context, output_content, parameters_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         RETURNING *
         "#,
     )
@@ -23,6 +25,7 @@ pub async fn create(
     .bind(&input.input_context)
     .bind(&input.output_content)
     .bind(&parameters_json)
+    .bind(&created_at)
     .fetch_one(pool)
     .await
     .map_err(|e| AppError::Internal(format!("Failed to create generation history: {}", e)))

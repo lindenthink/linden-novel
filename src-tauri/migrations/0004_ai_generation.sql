@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS ai_generation_history (
     input_context TEXT NOT NULL,
     output_content TEXT NOT NULL,
     parameters_json TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
 );
 
