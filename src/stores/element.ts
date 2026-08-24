@@ -12,6 +12,9 @@ import type {
   UpdateWorldviewEntry,
   ChapterElement,
   CreateChapterElement,
+  Foreshadow,
+  CreateForeshadow,
+  UpdateForeshadow,
 } from "../types";
 import * as api from "../api/element";
 
@@ -20,6 +23,7 @@ export const useElementStore = defineStore("element", () => {
   const characters = ref<Character[]>([]);
   const storylines = ref<Storyline[]>([]);
   const worldview = ref<WorldviewEntry[]>([]);
+  const foreshadows = ref<Foreshadow[]>([]);
   const chapterElements = ref<ChapterElement[]>([]);
 
   // ---- Character actions ----
@@ -94,6 +98,30 @@ export const useElementStore = defineStore("element", () => {
     worldview.value = worldview.value.filter((w) => w.id !== id);
   }
 
+  // ---- Foreshadow actions ----
+
+  async function fetchForeshadows(projectId: string) {
+    foreshadows.value = await api.listForeshadows(projectId);
+  }
+
+  async function createForeshadow(input: CreateForeshadow) {
+    const f = await api.createForeshadow(input);
+    foreshadows.value.push(f);
+    return f;
+  }
+
+  async function updateForeshadow(id: string, input: UpdateForeshadow) {
+    const updated = await api.updateForeshadow(id, input);
+    const idx = foreshadows.value.findIndex((f) => f.id === id);
+    if (idx !== -1) foreshadows.value[idx] = updated;
+    return updated;
+  }
+
+  async function deleteForeshadow(id: string) {
+    await api.deleteForeshadow(id);
+    foreshadows.value = foreshadows.value.filter((f) => f.id !== id);
+  }
+
   // ---- Chapter Element actions ----
 
   async function fetchChapterElements(chapterId: string) {
@@ -126,6 +154,7 @@ export const useElementStore = defineStore("element", () => {
     characters,
     storylines,
     worldview,
+    foreshadows,
     chapterElements,
     fetchCharacters,
     createCharacter,
@@ -139,6 +168,10 @@ export const useElementStore = defineStore("element", () => {
     createWorldview,
     updateWorldview,
     deleteWorldview,
+    fetchForeshadows,
+    createForeshadow,
+    updateForeshadow,
+    deleteForeshadow,
     fetchChapterElements,
     addChapterElement,
     removeChapterElement,

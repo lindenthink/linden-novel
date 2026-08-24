@@ -48,6 +48,12 @@ pub struct GenerationContext {
     /// RAG 检索到的相关上下文（渲染为 Prompt 片段）
     #[serde(default)]
     pub rag_context: Option<String>,
+    /// 本章需埋下的伏笔（plant_chapter_id = 当前章）
+    #[serde(default)]
+    pub foreshadows_to_plant: Vec<ForeshadowSummary>,
+    /// 本章可回收的伏笔（status=planted 未回收，或 resolve_chapter_id = 当前章）
+    #[serde(default)]
+    pub foreshadows_to_resolve: Vec<ForeshadowSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,4 +73,13 @@ pub struct StorylineSummary {
 pub struct WorldviewSummary {
     pub name: String,
     pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForeshadowSummary {
+    pub title: String,
+    pub description: Option<String>,
+    pub importance: String,
+    pub plant_note: Option<String>,
+    pub resolve_note: Option<String>,
 }

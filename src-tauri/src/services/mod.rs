@@ -15,3 +15,4 @@ pub mod chunk_embedding_service;
 pub mod summary_service;
 pub mod task_manager;
 pub mod prompt_template_service;
+pub mod foreshadow_service;

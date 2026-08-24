@@ -2,10 +2,10 @@ use sqlx::SqlitePool;
 use std::path::Path;
 
 use crate::ai::rag::{self, RagConfig};
-use crate::db::repo::{chapter_element_repo, chapter_repo, character_repo, storyline_repo, worldview_repo};
+use crate::db::repo::{chapter_element_repo, chapter_repo, character_repo, foreshadow_repo, storyline_repo, worldview_repo};
 use crate::error::AppError;
 use crate::models::ai_generation::{
-    CharacterSummary, GenerationContext, StorylineSummary, WorldviewSummary,
+    CharacterSummary, ForeshadowSummary, GenerationContext, StorylineSummary, WorldviewSummary,
 };
 use crate::models::chapter::Chapter;
 
@@ -204,6 +204,34 @@ pub async fn collect_context_with_rag_and_instruction(
         None
     };
 
+    // 6. 伏笔：本章需埋下的 + 本章可回收的
+    let foreshadows_to_plant = match foreshadow_repo::list_to_plant_in_chapter(pool, chapter_id).await {
+        Ok(list) => list.into_iter().map(|f| ForeshadowSummary {
+            title: f.title,
+            description: f.description,
+            importance: f.importance,
+            plant_note: f.plant_note,
+            resolve_note: None,
+        }).collect(),
+        Err(e) => {
+            tracing::warn!("Failed to load foreshadows to plant: {}", e);
+            Vec::new()
+        }
+    };
+    let foreshadows_to_resolve = match foreshadow_repo::list_resolvable_in_chapter(pool, chapter_id).await {
+        Ok(list) => list.into_iter().map(|f| ForeshadowSummary {
+            title: f.title,
+            description: f.description,
+            importance: f.importance,
+            plant_note: None,
+            resolve_note: f.resolve_note,
+        }).collect(),
+        Err(e) => {
+            tracing::warn!("Failed to load foreshadows to resolve: {}", e);
+            Vec::new()
+        }
+    };
+
     Ok(GenerationContext {
         chapter_id: chapter.id,
         chapter_title: chapter.title,
@@ -215,6 +243,8 @@ pub async fn collect_context_with_rag_and_instruction(
         previous_chapter_summary,
         next_chapter_summary,
         rag_context,
+        foreshadows_to_plant,
+        foreshadows_to_resolve,
     })
 }
 

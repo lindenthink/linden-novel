@@ -6,6 +6,7 @@ import { formatLocalTime } from "../../utils/time";
 import CharacterPanel from "../elements/CharacterPanel.vue";
 import StorylinePanel from "../elements/StorylinePanel.vue";
 import WorldviewPanel from "../elements/WorldviewPanel.vue";
+import ForeshadowPanel from "../elements/ForeshadowPanel.vue";
 
 const chapterStore = useChapterStore();
 
@@ -65,6 +66,11 @@ const formatTime = (iso: string | null) =>
       <!-- Tab 4: 世界观 -->
       <NTabPane name="worldview" tab="世界观" class="flex-1 overflow-hidden">
         <WorldviewPanel />
+      </NTabPane>
+
+      <!-- Tab 5: 伏笔 -->
+      <NTabPane name="foreshadow" tab="伏笔" class="flex-1 overflow-hidden">
+        <ForeshadowPanel />
       </NTabPane>
     </NTabs>
   </div>

@@ -201,6 +201,12 @@ pub fn run() {
             commands::worldview::create_worldview,
             commands::worldview::update_worldview,
             commands::worldview::delete_worldview,
+            // foreshadow
+            commands::foreshadow::list_foreshadows,
+            commands::foreshadow::get_foreshadow,
+            commands::foreshadow::create_foreshadow,
+            commands::foreshadow::update_foreshadow,
+            commands::foreshadow::delete_foreshadow,
             // chapter_element
             commands::chapter_element::list_chapter_elements,
             commands::chapter_element::add_chapter_element,

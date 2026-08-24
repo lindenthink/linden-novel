@@ -16,6 +16,11 @@ export type {
   ChapterElement,
   CreateChapterElement,
   ElementType,
+  Foreshadow,
+  CreateForeshadow,
+  UpdateForeshadow,
+  ForeshadowImportance,
+  ForeshadowStatus,
 } from "./element";
 export type {
   AiProvider,

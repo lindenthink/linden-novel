@@ -74,6 +74,40 @@ pub fn build_generation_prompt(
         prompt.push('\n');
     }
 
+    // 伏笔：本章需埋下的
+    if !context.foreshadows_to_plant.is_empty() {
+        prompt.push_str("## 本章需埋下的伏笔\n");
+        prompt.push_str("请在正文中自然埋下以下伏笔，不要刻意点明：\n");
+        for f in &context.foreshadows_to_plant {
+            prompt.push_str(&format!("- 「{}」", f.title));
+            if let Some(desc) = &f.description {
+                prompt.push_str(&format!("：{}", desc));
+            }
+            if let Some(note) = &f.plant_note {
+                prompt.push_str(&format!("（埋点说明：{}）", note));
+            }
+            prompt.push('\n');
+        }
+        prompt.push('\n');
+    }
+
+    // 伏笔：本章可回收的
+    if !context.foreshadows_to_resolve.is_empty() {
+        prompt.push_str("## 本章可回收的伏笔\n");
+        prompt.push_str("以下伏笔已埋下，若情节合适可在此章回收：\n");
+        for f in &context.foreshadows_to_resolve {
+            prompt.push_str(&format!("- 「{}」", f.title));
+            if let Some(desc) = &f.description {
+                prompt.push_str(&format!("：{}", desc));
+            }
+            if let Some(note) = &f.resolve_note {
+                prompt.push_str(&format!("（回收说明：{}）", note));
+            }
+            prompt.push('\n');
+        }
+        prompt.push('\n');
+    }
+
     // 当前内容
     if !context.chapter_content.is_empty() {
         prompt.push_str("## 当前内容\n");

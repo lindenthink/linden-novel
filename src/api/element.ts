@@ -11,6 +11,9 @@ import type {
   UpdateWorldviewEntry,
   ChapterElement,
   CreateChapterElement,
+  Foreshadow,
+  CreateForeshadow,
+  UpdateForeshadow,
 } from "../types";
 
 // ---- Character ----
@@ -99,4 +102,26 @@ export async function removeChapterElementByRef(
   elementId: string,
 ): Promise<void> {
   return invoke("remove_chapter_element_by_ref", { chapterId, elementType, elementId });
+}
+
+// ---- Foreshadow ----
+
+export async function listForeshadows(projectId: string): Promise<Foreshadow[]> {
+  return invoke<Foreshadow[]>("list_foreshadows", { projectId });
+}
+
+export async function getForeshadow(id: string): Promise<Foreshadow> {
+  return invoke<Foreshadow>("get_foreshadow", { id });
+}
+
+export async function createForeshadow(input: CreateForeshadow): Promise<Foreshadow> {
+  return invoke<Foreshadow>("create_foreshadow", { input });
+}
+
+export async function updateForeshadow(id: string, input: UpdateForeshadow): Promise<Foreshadow> {
+  return invoke<Foreshadow>("update_foreshadow", { id, input });
+}
+
+export async function deleteForeshadow(id: string): Promise<void> {
+  return invoke("delete_foreshadow", { id });
 }

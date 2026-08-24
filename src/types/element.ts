@@ -89,3 +89,46 @@ export interface CreateChapterElement {
   element_type: ElementType;
   element_id: string;
 }
+
+// ---- Foreshadow (伏笔) ----
+export type ForeshadowImportance = "minor" | "normal" | "major";
+export type ForeshadowStatus = "pending" | "planted" | "resolved" | "abandoned";
+
+export interface Foreshadow {
+  id: string;
+  project_id: string;
+  title: string;
+  description: string | null;
+  importance: ForeshadowImportance;
+  status: ForeshadowStatus;
+  plant_chapter_id: string | null;
+  resolve_chapter_id: string | null;
+  plant_note: string | null;
+  resolve_note: string | null;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateForeshadow {
+  project_id: string;
+  title: string;
+  description?: string | null;
+  importance?: ForeshadowImportance;
+  status?: ForeshadowStatus;
+  plant_chapter_id?: string | null;
+  resolve_chapter_id?: string | null;
+  plant_note?: string | null;
+  resolve_note?: string | null;
+}
+
+export interface UpdateForeshadow {
+  title?: string | null;
+  description?: string | null;
+  importance?: ForeshadowImportance | null;
+  status?: ForeshadowStatus | null;
+  plant_chapter_id?: string | null;
+  resolve_chapter_id?: string | null;
+  plant_note?: string | null;
+  resolve_note?: string | null;
+}
