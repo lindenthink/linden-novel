@@ -50,7 +50,11 @@ const formatTime = (iso: string) =>
           <span class="text-base font-semibold text-gray-900 dark:text-gray-100">{{ project.title }}</span>
         </template>
         <template #description>
-          <NEllipsis :line-clamp="2" class="text-sm text-gray-500 dark:text-gray-400">
+          <NEllipsis
+            :line-clamp="2"
+            class="text-sm text-gray-500 dark:text-gray-400"
+            :tooltip="{ contentStyle: 'max-width: 360px; word-break: break-word;' }"
+          >
             {{ project.summary || "暂无简介" }}
           </NEllipsis>
         </template>
