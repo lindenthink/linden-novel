@@ -207,6 +207,12 @@ pub fn run() {
             commands::foreshadow::create_foreshadow,
             commands::foreshadow::update_foreshadow,
             commands::foreshadow::delete_foreshadow,
+            // inspiration
+            commands::inspiration::list_inspirations,
+            commands::inspiration::get_inspiration,
+            commands::inspiration::create_inspiration,
+            commands::inspiration::update_inspiration,
+            commands::inspiration::delete_inspiration,
             // chapter_element
             commands::chapter_element::list_chapter_elements,
             commands::chapter_element::add_chapter_element,

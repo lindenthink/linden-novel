@@ -7,6 +7,7 @@ import CharacterPanel from "../elements/CharacterPanel.vue";
 import StorylinePanel from "../elements/StorylinePanel.vue";
 import WorldviewPanel from "../elements/WorldviewPanel.vue";
 import ForeshadowPanel from "../elements/ForeshadowPanel.vue";
+import InspirationPanel from "../elements/InspirationPanel.vue";
 
 const chapterStore = useChapterStore();
 
@@ -71,6 +72,11 @@ const formatTime = (iso: string | null) =>
       <!-- Tab 5: 伏笔 -->
       <NTabPane name="foreshadow" tab="伏笔" class="flex-1 overflow-hidden">
         <ForeshadowPanel />
+      </NTabPane>
+
+      <!-- Tab 6: 灵感 -->
+      <NTabPane name="inspiration" tab="灵感" class="flex-1 overflow-hidden">
+        <InspirationPanel />
       </NTabPane>
     </NTabs>
   </div>

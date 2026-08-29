@@ -16,3 +16,4 @@ pub mod summary_service;
 pub mod task_manager;
 pub mod prompt_template_service;
 pub mod foreshadow_service;
+pub mod inspiration_service;

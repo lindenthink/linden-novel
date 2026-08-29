@@ -132,3 +132,29 @@ export interface UpdateForeshadow {
   plant_note?: string | null;
   resolve_note?: string | null;
 }
+
+// ---- Inspiration (灵感记录) ----
+export type InspirationStatus = "new" | "adopted" | "shelved";
+
+export interface Inspiration {
+  id: string;
+  project_id: string;
+  content: string;
+  tag: string | null;
+  status: InspirationStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateInspiration {
+  project_id: string;
+  content: string;
+  tag?: string | null;
+  status?: InspirationStatus;
+}
+
+export interface UpdateInspiration {
+  content?: string | null;
+  tag?: string | null;
+  status?: InspirationStatus | null;
+}

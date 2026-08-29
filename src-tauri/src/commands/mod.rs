@@ -15,3 +15,4 @@ pub mod long_context;
 pub mod tasks;
 pub mod prompt_templates;
 pub mod foreshadow;
+pub mod inspiration;

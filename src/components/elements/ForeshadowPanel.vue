@@ -255,16 +255,18 @@ async function handleDelete(id: string) {
               <span>{{ formatLocalTime(item.created_at) }}</span>
             </div>
           </div>
-          <NPopconfirm @positive-click="handleDelete(item.id)">
-            <template #trigger>
-              <NButton quaternary size="tiny" class="ml-2" @click.stop>
-                <template #icon>
-                  <span class="i-carbon-trash-can" />
-                </template>
-              </NButton>
-            </template>
-            确定删除吗？
-          </NPopconfirm>
+          <template #suffix>
+            <NPopconfirm @positive-click="handleDelete(item.id)">
+              <template #trigger>
+                <NButton quaternary size="tiny" @click.stop>
+                  <template #icon>
+                    <span class="i-carbon-trash-can" />
+                  </template>
+                </NButton>
+              </template>
+              确定删除吗？
+            </NPopconfirm>
+          </template>
         </NListItem>
       </NList>
     </div>

@@ -21,6 +21,10 @@ export type {
   UpdateForeshadow,
   ForeshadowImportance,
   ForeshadowStatus,
+  Inspiration,
+  CreateInspiration,
+  UpdateInspiration,
+  InspirationStatus,
 } from "./element";
 export type {
   AiProvider,

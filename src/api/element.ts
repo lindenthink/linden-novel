@@ -14,6 +14,9 @@ import type {
   Foreshadow,
   CreateForeshadow,
   UpdateForeshadow,
+  Inspiration,
+  CreateInspiration,
+  UpdateInspiration,
 } from "../types";
 
 // ---- Character ----
@@ -124,4 +127,26 @@ export async function updateForeshadow(id: string, input: UpdateForeshadow): Pro
 
 export async function deleteForeshadow(id: string): Promise<void> {
   return invoke("delete_foreshadow", { id });
+}
+
+// ---- Inspiration ----
+
+export async function listInspirations(projectId: string): Promise<Inspiration[]> {
+  return invoke<Inspiration[]>("list_inspirations", { projectId });
+}
+
+export async function getInspiration(id: string): Promise<Inspiration> {
+  return invoke<Inspiration>("get_inspiration", { id });
+}
+
+export async function createInspiration(input: CreateInspiration): Promise<Inspiration> {
+  return invoke<Inspiration>("create_inspiration", { input });
+}
+
+export async function updateInspiration(id: string, input: UpdateInspiration): Promise<Inspiration> {
+  return invoke<Inspiration>("update_inspiration", { id, input });
+}
+
+export async function deleteInspiration(id: string): Promise<void> {
+  return invoke("delete_inspiration", { id });
 }

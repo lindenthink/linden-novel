@@ -15,6 +15,9 @@ import type {
   Foreshadow,
   CreateForeshadow,
   UpdateForeshadow,
+  Inspiration,
+  CreateInspiration,
+  UpdateInspiration,
 } from "../types";
 import * as api from "../api/element";
 
@@ -24,6 +27,7 @@ export const useElementStore = defineStore("element", () => {
   const storylines = ref<Storyline[]>([]);
   const worldview = ref<WorldviewEntry[]>([]);
   const foreshadows = ref<Foreshadow[]>([]);
+  const inspirations = ref<Inspiration[]>([]);
   const chapterElements = ref<ChapterElement[]>([]);
 
   // ---- Character actions ----
@@ -122,6 +126,31 @@ export const useElementStore = defineStore("element", () => {
     foreshadows.value = foreshadows.value.filter((f) => f.id !== id);
   }
 
+  // ---- Inspiration actions ----
+
+  async function fetchInspirations(projectId: string) {
+    inspirations.value = await api.listInspirations(projectId);
+  }
+
+  async function createInspiration(input: CreateInspiration) {
+    const i = await api.createInspiration(input);
+    // 列表按创建时间倒序，新灵感插入最前
+    inspirations.value.unshift(i);
+    return i;
+  }
+
+  async function updateInspiration(id: string, input: UpdateInspiration) {
+    const updated = await api.updateInspiration(id, input);
+    const idx = inspirations.value.findIndex((i) => i.id === id);
+    if (idx !== -1) inspirations.value[idx] = updated;
+    return updated;
+  }
+
+  async function deleteInspiration(id: string) {
+    await api.deleteInspiration(id);
+    inspirations.value = inspirations.value.filter((i) => i.id !== id);
+  }
+
   // ---- Chapter Element actions ----
 
   async function fetchChapterElements(chapterId: string) {
@@ -155,6 +184,7 @@ export const useElementStore = defineStore("element", () => {
     storylines,
     worldview,
     foreshadows,
+    inspirations,
     chapterElements,
     fetchCharacters,
     createCharacter,
@@ -172,6 +202,10 @@ export const useElementStore = defineStore("element", () => {
     createForeshadow,
     updateForeshadow,
     deleteForeshadow,
+    fetchInspirations,
+    createInspiration,
+    updateInspiration,
+    deleteInspiration,
     fetchChapterElements,
     addChapterElement,
     removeChapterElement,
