@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { ref, watch } from "vue";
 import { NCard, NThing, NDropdown, NButton, NEllipsis, NTag } from "naive-ui";
 import type { Project } from "../../types";
 import { formatLocalTime } from "../../utils/time";
+import { resolveCoverUrl } from "../../utils/cover";
 
 const props = defineProps<{
   project: Project;
@@ -12,6 +14,15 @@ const emit = defineEmits<{
   delete: [id: string];
   edit: [id: string];
 }>();
+
+const coverUrl = ref<string | null>(null);
+watch(
+  () => props.project.cover_path,
+  async (p) => {
+    coverUrl.value = await resolveCoverUrl(p);
+  },
+  { immediate: true },
+);
 
 const statusLabel = (p: Project) => {
   if (p.genre) return p.genre;
@@ -44,6 +55,9 @@ const formatTime = (iso: string) =>
     class="cursor-pointer transition-all duration-200 hover:shadow-lg bg-white dark:bg-gray-800"
     @click="emit('open', project.id)"
   >
+    <div v-if="coverUrl" class="mb-3 overflow-hidden rounded-lg" style="aspect-ratio: 16 / 9">
+      <img :src="coverUrl" class="w-full h-full object-cover" />
+    </div>
     <div class="flex items-start justify-between">
       <NThing>
         <template #header>

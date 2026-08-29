@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import {
   NButton,
@@ -16,7 +16,10 @@ import {
   NSpin,
   NEmpty,
 } from "naive-ui";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useProjectStore } from "../stores/project";
+import { saveProjectCover } from "../api/project";
+import { resolveCoverUrl } from "../utils/cover";
 import ProjectCard from "../components/common/ProjectCard.vue";
 
 const router = useRouter();
@@ -31,8 +34,17 @@ const createForm = ref({
   genre: null as string | null,
   summary: null as string | null,
   target_words: null as number | null,
+  cover_path: null as string | null,
 });
 const creating = ref(false);
+const createCoverPreview = ref<string | null>(null);
+watch(
+  () => createForm.value.cover_path,
+  async (p) => {
+    createCoverPreview.value = await resolveCoverUrl(p);
+  },
+  { immediate: true },
+);
 
 // ---- 编辑项目弹窗 ----
 const showEdit = ref(false);
@@ -42,8 +54,35 @@ const editForm = ref({
   genre: null as string | null,
   summary: null as string | null,
   target_words: null as number | null,
+  cover_path: null as string | null,
 });
 const editing = ref(false);
+const editCoverPreview = ref<string | null>(null);
+watch(
+  () => editForm.value.cover_path,
+  async (p) => {
+    editCoverPreview.value = await resolveCoverUrl(p);
+  },
+  { immediate: true },
+);
+
+async function pickCover(target: "create" | "edit") {
+  const selected = await open({
+    multiple: false,
+    filters: [{ name: "图片", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] }],
+  });
+  if (typeof selected !== "string" || !selected) return;
+  try {
+    const rel = await saveProjectCover(selected);
+    if (target === "create") {
+      createForm.value.cover_path = rel;
+    } else {
+      editForm.value.cover_path = rel;
+    }
+  } catch (e: any) {
+    message.error(e?.message || "封面保存失败");
+  }
+}
 
 const genreOptions = [
   { label: "玄幻", value: "玄幻" },
@@ -71,10 +110,11 @@ async function handleCreate() {
       genre: createForm.value.genre,
       summary: createForm.value.summary,
       target_words: createForm.value.target_words,
+      cover_path: createForm.value.cover_path,
     });
     message.success("项目创建成功");
     showCreate.value = false;
-    createForm.value = { title: "", genre: null, summary: null, target_words: null };
+    createForm.value = { title: "", genre: null, summary: null, target_words: null, cover_path: null };
     router.push({ name: "editor", params: { id: p.id } });
   } catch (e: any) {
     message.error(e?.message || "创建失败");
@@ -114,6 +154,7 @@ function handleEdit(id: string) {
     genre: p.genre,
     summary: p.summary,
     target_words: p.target_words,
+    cover_path: p.cover_path,
   };
   showEdit.value = true;
 }
@@ -131,6 +172,7 @@ async function handleUpdate() {
       genre: editForm.value.genre,
       summary: editForm.value.summary,
       target_words: editForm.value.target_words,
+      cover_path: editForm.value.cover_path,
     });
     message.success("项目已更新");
     showEdit.value = false;
@@ -262,6 +304,30 @@ onMounted(() => {
             maxlength="500"
           />
         </NFormItem>
+        <NFormItem label="封面">
+          <div class="flex items-center gap-3">
+            <div
+              v-if="createCoverPreview"
+              class="w-20 h-12 overflow-hidden rounded border border-gray-200 dark:border-gray-700 flex-shrink-0"
+            >
+              <img :src="createCoverPreview" class="w-full h-full object-cover" />
+            </div>
+            <NButton size="small" @click="pickCover('create')">
+              <template #icon>
+                <span class="i-carbon-image" />
+              </template>
+              选择图片
+            </NButton>
+            <NButton
+              v-if="createForm.cover_path"
+              size="small"
+              quaternary
+              @click="createForm.cover_path = null"
+            >
+              移除
+            </NButton>
+          </div>
+        </NFormItem>
       </NForm>
     </NModal>
 
@@ -311,6 +377,30 @@ onMounted(() => {
             :rows="3"
             maxlength="500"
           />
+        </NFormItem>
+        <NFormItem label="封面">
+          <div class="flex items-center gap-3">
+            <div
+              v-if="editCoverPreview"
+              class="w-20 h-12 overflow-hidden rounded border border-gray-200 dark:border-gray-700 flex-shrink-0"
+            >
+              <img :src="editCoverPreview" class="w-full h-full object-cover" />
+            </div>
+            <NButton size="small" @click="pickCover('edit')">
+              <template #icon>
+                <span class="i-carbon-image" />
+              </template>
+              选择图片
+            </NButton>
+            <NButton
+              v-if="editForm.cover_path"
+              size="small"
+              quaternary
+              @click="editForm.cover_path = ''"
+            >
+              移除
+            </NButton>
+          </div>
         </NFormItem>
       </NForm>
     </NModal>

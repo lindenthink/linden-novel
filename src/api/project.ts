@@ -24,6 +24,14 @@ export async function deleteProject(id: string): Promise<void> {
   return invoke("delete_project", { id });
 }
 
+/**
+ * 将用户选择的本地图片复制到 app_data_dir/covers 下，返回相对路径（如 `covers/xxx.png`）。
+ * 前端拿到后存入表单 cover_path，随 createProject/updateProject 一起保存到 DB。
+ */
+export async function saveProjectCover(filePath: string): Promise<string> {
+  return invoke<string>("save_project_cover", { filePath });
+}
+
 // ---- Volume ----
 
 export async function listVolumes(projectId: string): Promise<Volume[]> {

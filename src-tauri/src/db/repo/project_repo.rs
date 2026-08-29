@@ -20,14 +20,15 @@ pub async fn create(pool: &SqlitePool, input: &CreateProject) -> Result<Project,
     let id = uuid::Uuid::new_v4().to_string();
     let ts = pool::now();
     sqlx::query_as::<_, Project>(
-        "INSERT INTO projects (id, title, genre, summary, target_words, settings_json, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, NULL, ?, ?) RETURNING *",
+        "INSERT INTO projects (id, title, genre, summary, target_words, settings_json, cover_path, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?) RETURNING *",
     )
     .bind(&id)
     .bind(&input.title)
     .bind(&input.genre)
     .bind(&input.summary)
     .bind(input.target_words)
+    .bind(&input.cover_path)
     .bind(&ts)
     .bind(&ts)
     .fetch_one(pool)
@@ -47,6 +48,11 @@ pub async fn update(
             summary = COALESCE(?, summary),
             target_words = COALESCE(?, target_words),
             settings_json = COALESCE(?, settings_json),
+            cover_path = CASE
+                WHEN ? IS NULL THEN cover_path
+                WHEN ? = '' THEN NULL
+                ELSE ?
+            END,
             updated_at = ?
          WHERE id = ? RETURNING *",
     )
@@ -55,6 +61,9 @@ pub async fn update(
     .bind(&input.summary)
     .bind(input.target_words)
     .bind(&input.settings_json)
+    .bind(&input.cover_path)
+    .bind(&input.cover_path)
+    .bind(&input.cover_path)
     .bind(&ts)
     .bind(id)
     .fetch_one(pool)

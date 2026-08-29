@@ -9,6 +9,7 @@ pub struct Project {
     pub summary: Option<String>,
     pub target_words: Option<i64>,
     pub settings_json: Option<String>,
+    pub cover_path: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -19,6 +20,7 @@ pub struct CreateProject {
     pub genre: Option<String>,
     pub summary: Option<String>,
     pub target_words: Option<i64>,
+    pub cover_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -28,4 +30,5 @@ pub struct UpdateProject {
     pub summary: Option<String>,
     pub target_words: Option<i64>,
     pub settings_json: Option<String>,
+    pub cover_path: Option<String>,
 }

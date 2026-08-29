@@ -6,6 +6,7 @@ export interface Project {
   summary: string | null;
   target_words: number | null;
   settings_json: string | null;
+  cover_path: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -15,6 +16,7 @@ export interface CreateProject {
   genre?: string | null;
   summary?: string | null;
   target_words?: number | null;
+  cover_path?: string | null;
 }
 
 export interface UpdateProject {
@@ -23,6 +25,7 @@ export interface UpdateProject {
   summary?: string | null;
   target_words?: number | null;
   settings_json?: string | null;
+  cover_path?: string | null;
 }
 
 // ---- Volume ----

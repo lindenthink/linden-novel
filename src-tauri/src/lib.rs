@@ -162,6 +162,7 @@ pub fn run() {
             commands::project::create_project,
             commands::project::update_project,
             commands::project::delete_project,
+            commands::project::save_project_cover,
             // volume
             commands::volume::list_volumes,
             commands::volume::create_volume,
