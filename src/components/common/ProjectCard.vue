@@ -92,9 +92,6 @@ const formatTime = (iso: string) =>
       <NTag size="small" :bordered="false" type="info">
         {{ statusLabel(project) }}
       </NTag>
-      <span v-if="project.target_words">
-        目标 {{ (project.target_words / 10000).toFixed(1) }} 万字
-      </span>
       <span class="ml-auto">{{ formatTime(project.updated_at) }}</span>
     </div>
   </NCard>

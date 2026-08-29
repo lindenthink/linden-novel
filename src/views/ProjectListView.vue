@@ -202,7 +202,7 @@ onMounted(() => {
             class="w-12 h-12 rounded-lg object-contain"
           />
           <div class="flex flex-col leading-tight">
-            <h1 class="text-xl font-bold text-linden-primary">菩提思</h1>
+            <h1 class="text-xl font-bold text-linden-primary dark:text-[#5ac98a]">菩提思</h1>
             <span class="text-xs font-normal text-gray-400 dark:text-gray-500">助你文思泉涌，妙笔生花</span>
           </div>
         </div>
