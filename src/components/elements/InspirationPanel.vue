@@ -44,11 +44,11 @@ const statusTagType = (
 };
 
 const statusLabel = (status: InspirationStatus): string => {
-  return status === "adopted" ? "已采用" : status === "new" ? "新灵感" : "已搁置";
+  return status === "adopted" ? "已采用" : status === "new" ? "待处理" : "已搁置";
 };
 
 const statusOptions = [
-  { label: "新灵感", value: "new" },
+  { label: "待处理", value: "new" },
   { label: "已采用", value: "adopted" },
   { label: "已搁置", value: "shelved" },
 ];
