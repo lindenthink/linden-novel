@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { NModal, NForm, NFormItem, NInput, NTag, useMessage } from "naive-ui";
+import { NModal, NForm, NFormItem, NInput, NSelect, NTag, useMessage } from "naive-ui";
 import { useElementStore } from "../../stores/element";
 import { useProjectStore } from "../../stores/project";
 import ElementList from "./ElementList.vue";
@@ -14,9 +14,20 @@ const showEdit = ref(false);
 const editingItem = ref<WorldviewEntry | null>(null);
 const form = ref({
   name: "",
-  category: "",
+  category: null as string | null,
   description: "",
 });
+
+// 常用分类快捷选项（也允许自由输入）
+const categoryOptions = [
+  "地理",
+  "势力",
+  "规则",
+  "种族",
+  "物品",
+  "历史",
+  "其他",
+].map((c) => ({ label: c, value: c }));
 
 onMounted(() => {
   if (projectStore.currentProject) {
@@ -26,7 +37,7 @@ onMounted(() => {
 
 function handleCreate() {
   editingItem.value = null;
-  form.value = { name: "", category: "", description: "" };
+  form.value = { name: "", category: null, description: "" };
   showEdit.value = true;
 }
 
@@ -36,7 +47,7 @@ function handleEdit(item: { id: string; name: string; description?: string | nul
   editingItem.value = full;
   form.value = {
     name: full.name,
-    category: full.category || "",
+    category: full.category,
     description: full.description || "",
   };
   showEdit.value = true;
@@ -115,7 +126,14 @@ async function handleDelete(id: string) {
           <NInput v-model:value="form.name" placeholder="条目名称" maxlength="50" show-count />
         </NFormItem>
         <NFormItem label="分类">
-          <NInput v-model:value="form.category" placeholder="如：地理、势力、规则" maxlength="30" />
+          <NSelect
+            v-model:value="form.category"
+            :options="categoryOptions"
+            tag
+            filterable
+            clearable
+            placeholder="选择或输入分类"
+          />
         </NFormItem>
         <NFormItem label="描述">
           <NInput
